@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用基本信息 -->
+    <string name="app_name">码上取件</string>
+    <string name="app_description">自动识别取件码短信，整合管理您的取件信息</string>
+    
+    <!-- 主界面 -->
+    <string name="title_parcel_list">取件记录</string>
+    <string name="title_uncollected">待取件</string>
+    <string name="title_collected">已取件</string>
+    <string name="title_settings">设置</string>
+    <string name="title_scan">扫描短信</string>
+    
+    <!-- 按钮文本 -->
+    <string name="btn_scan_sms">扫描短信</string>
+    <string name="btn_scan_latest">扫描最新短信</string>
+    <string name="btn_manual_input">手动输入</string>
+    <string name="btn_refresh">刷新</string>
+    <string name="btn_delete">删除</string>
+    <string name="btn_edit">编辑</string>
+    <string name="btn_copy">复制</string>
+    <string name="btn_share">分享</string>
+    <string name="btn_save">保存</string>
+    <string name="btn_cancel">取消</string>
+    <string name="btn_ok">确定</string>
+    <string name="btn_grant_permission">授予权限</string>
+    <string name="btn_mark_collected">标记为已取件</string>
+    <string name="btn_mark_uncollected">标记为未取件</string>
+    
+    <!-- 消息提示 -->
+    <string name="msg_loading">正在加载…</string>
+    <string name="msg_scanning">正在扫描短信…</string>
+    <string name="msg_scan_complete">扫描完成</string>
+    <string name="msg_scan_found">发现%d个取件码</string>
+    <string name="msg_scan_not_found">未发现取件码</string>
+    <string name="msg_scan_failed">扫描失败</string>
+    <string name="msg_save_success">保存成功</string>
+    <string name="msg_save_failed">保存失败</string>
+    <string name="msg_delete_success">删除成功</string>
+    <string name="msg_delete_failed">删除失败</string>
+    <string name="msg_copy_success">已复制到剪贴板</string>
+    <string name="msg_permission_denied">权限被拒绝</string>
+    <string name="msg_no_permission">需要短信读取权限</string>
+    <string name="msg_no_data">暂无数据</string>
+    <string name="msg_empty_list">还没有取件记录</string>
+    
+    <!-- 权限相关 -->
+    <string name="permission_title">需要短信读取权限</string>
+    <string name="permission_description">为了自动识别取件码短信，需要授予短信读取权限。应用只会读取包含取件码的短信。</string>
+    <string name="permission_denied">短信读取权限被拒绝，部分功能将无法使用</string>
+    
+    <!-- 对话框 -->
+    <string name="dialog_delete_title">删除取件码</string>
+    <string name="dialog_delete_message">确定要删除取件码吗？</string>
+    <string name="dialog_input_title">手动输入取件码</string>
+    <string name="dialog_input_hint">请输入短信内容…</string>
+    <string name="dialog_settings_title">设置</string>
+    
+    <!-- 取件记录字段 -->
+    <string name="label_parcel_code">取件码</string>
+    <string name="label_address">取件地址</string>
+    <string name="label_courier">快递公司</string>
+    <string name="label_sms_date">短信日期</string>
+    <string name="label_status">状态</string>
+    <string name="label_notes">备注</string>
+    <string name="label_sender">发件人</string>
+    <string name="label_created">创建时间</string>
+    
+    <!-- 状态 -->
+    <string name="status_uncollected">未取件</string>
+    <string name="status_collected">已取件</string>
+    <string name="status_today">今天</string>
+    <string name="status_yesterday">昨天</string>
+    <string name="status_days_ago">%d天前</string>
+    
+    <!-- 快递公司 -->
+    <string name="courier_sf">顺丰</string>
+    <string name="courier_jd">京东</string>
+    <string name="courier_zt">中通</string>
+    <string name="courier_yt">圆通</string>
+    <string name="courier_yd">韵达</string>
+    <string name="courier_cainiao">菜鸟驿站</string>
+    <string name="courier_post">邮政</string>
+    <string name="courier_unknown">未知快递</string>
+    
+    <!-- 设置选项 -->
+    <string name="setting_auto_scan">自动扫描</string>
+    <string name="setting_auto_scan_desc">收到新短信时自动扫描</string>
+    <string name="setting_notification">通知提醒</string>
+    <string name="setting_notification_desc">发现新取件码时发送通知</string>
+    <string name="setting_keep_days">保留天数</string>
+    <string name="setting_keep_days_desc">自动删除多少天前的记录</string>
+    <string name="setting_custom_rules">自定义规则</string>
+    <string name="setting_custom_rules_desc">添加自定义的取件码识别规则</string>
+    <string name="setting_about">关于</string>
+    <string name="setting_version">版本</string>
+    <string name="setting_feedback">反馈</string>
+    
+    <!-- 错误信息 -->
+    <string name="error_network">网络连接失败</string>
+    <string name="error_database">数据库错误</string>
+    <string name="error_parse">解析失败</string>
+    <string name="error_invalid_input">输入内容无效</string>
+    <string name="error_no_sms">没有找到短信</string>
+    <string name="error_permission">权限不足</string>
+</resources>
