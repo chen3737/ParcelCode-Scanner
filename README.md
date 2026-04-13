@@ -153,6 +153,6 @@ data class Parcel(
 
 ## 联系方式
 
-- 项目主页：https://github.com/yourusername/mashangqujian
+- 项目主页：https://github.com/chen3737/ParcelCode-Scanner
 - 问题反馈：请使用 GitHub Issues
 - 功能建议：欢迎提交 Pull Request 或 Issue
