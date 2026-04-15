@@ -81,8 +81,7 @@ navigation/
 *.tmp
 *~
 
-# Gradle wrapper (should be committed)
-!gradle/wrapper/gradle-wrapper.jar
+# Gradle wrapper files (jar is auto-downloaded, don't commit)
 !gradle/wrapper/gradle-wrapper.properties
 
 # Other Gradle files
