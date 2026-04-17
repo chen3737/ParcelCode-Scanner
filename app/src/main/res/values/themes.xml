@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- iOS简约蓝色方案主题 -->
+    <style name="Theme.Mashangqujian" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- 主色调 -->
+        <item name="android:colorPrimary">@color/ios_blue_primary</item>
+        <item name="android:colorPrimaryDark">@color/ios_blue_primary</item>
+        <item name="android:colorAccent">@color/ios_blue_primary</item>
+        
+        <!-- 背景和表面 -->
+        <item name="android:windowBackground">@color/background_white</item>
+        <item name="android:colorBackground">@color/background_white</item>
+        
+        <!-- 状态栏 -->
+        <item name="android:statusBarColor">@color/background_white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        
+        <!-- 导航栏 -->
+        <item name="android:navigationBarColor">@color/background_white</item>
+        
+        <!-- 文字颜色 -->
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        
+        <!-- 卡片和对话框背景 -->
+        <item name="android:colorBackgroundFloating">@color/surface_white</item>
+    </style>
+    
+    <!-- 深色主题变体 -->
+    <style name="Theme.Mashangqujian.Dark" parent="android:Theme.Material.NoActionBar">
+        <!-- 主色调 -->
+        <item name="android:colorPrimary">@color/ios_blue_primary</item>
+        <item name="android:colorPrimaryDark">@color/ios_blue_primary</item>
+        <item name="android:colorAccent">@color/ios_blue_primary</item>
+        
+        <!-- 背景和表面 -->
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:colorBackground">@color/black</item>
+        
+        <!-- 状态栏 -->
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:windowLightStatusBar">false</item>
+        
+        <!-- 导航栏 -->
+        <item name="android:navigationBarColor">@color/black</item>
+        
+        <!-- 文字颜色 -->
+        <item name="android:textColorPrimary">@color/white</item>
+        <item name="android:textColorSecondary">@color/text_tertiary</item>
+        
+        <!-- 卡片和对话框背景 -->
+        <item name="android:colorBackgroundFloating">@color/text_primary</item>
+    </style>
+</resources>

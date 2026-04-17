@@ -1,5 +1,6 @@
 package com.mashangqujian.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,12 +28,13 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Scan
+import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Warning
+import com.mashangqujian.ui.components.SettingsDialog
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -41,7 +43,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -66,6 +67,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -74,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mashangqujian.data.model.Parcel
 import com.mashangqujian.ui.MainViewModel
+import com.mashangqujian.ui.theme.MashangqujianTheme
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,14 +84,35 @@ import kotlinx.coroutines.launch
 fun MainScreen(viewModel: MainViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    
+    // 设置对话框状态
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    
+    // 使用ViewModel中的状态
+    val showManualInputDialog by remember { viewModel.showAddManuallyDialog }
+    val showRuleManagement by remember { viewModel.showRuleManagement }
+    val errorMessage = viewModel.errorMessage.value
     
     // 监听错误信息
-    val errorMessage = viewModel.errorMessage.value
     LaunchedEffect(errorMessage) {
         errorMessage?.let { message ->
             scope.launch {
                 snackbarHostState.showSnackbar(message)
                 viewModel.clearError()
+                
+                // 如果解析失败，保持对话框打开
+                if (message.contains("不包含有效的取件码") || 
+                    message.contains("解析失败") || 
+                    message.contains("添加失败") ||
+                    message.contains("请输入短信内容")) {
+                    viewModel.keepDialogOpenOnFailure.value = true
+                } else {
+                    // 解析成功，关闭对话框
+                    if (showManualInputDialog) {
+                        viewModel.closeManualInputDialog()
+                    }
+                }
             }
         }
     }
@@ -166,13 +190,13 @@ fun MainScreen(viewModel: MainViewModel) {
                                     showMenu = false
                                 },
                                 leadingIcon = {
-                                    Icon(Icons.Default.Scan, null)
+                                    Icon(Icons.Default.Search, null)
                                 }
                             )
                             DropdownMenuItem(
                                 text = { Text("手动输入取件码") },
                                 onClick = {
-                                    // TODO: 打开手动输入对话框
+                                    viewModel.openManualInputDialog()
                                     showMenu = false
                                 },
                                 leadingIcon = {
@@ -180,9 +204,19 @@ fun MainScreen(viewModel: MainViewModel) {
                                 }
                             )
                             DropdownMenuItem(
+                                text = { Text("规则管理") },
+                                onClick = {
+                                    viewModel.openRuleManagement()
+                                    showMenu = false
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Rule, null)
+                                }
+                            )
+                            DropdownMenuItem(
                                 text = { Text("设置") },
                                 onClick = {
-                                    // TODO: 打开设置页面
+                                    showSettingsDialog = true
                                     showMenu = false
                                 },
                                 leadingIcon = {
@@ -194,14 +228,6 @@ fun MainScreen(viewModel: MainViewModel) {
                 }
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { viewModel.scanSMS() },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Sms, "扫描短信")
-            }
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
@@ -212,7 +238,7 @@ fun MainScreen(viewModel: MainViewModel) {
             // 权限提示
             if (!viewModel.hasSMSPermission.value) {
                 PermissionRequestCard(
-                    onRequestPermission = { viewModel.requestSMSPermission() }
+                    onRequestPermission = { viewModel.requestSMSPermission(context as android.app.Activity) }
                 )
             }
             
@@ -251,11 +277,33 @@ fun MainScreen(viewModel: MainViewModel) {
             }
         }
     }
+    
+    // 设置对话框
+    if (showSettingsDialog) {
+        SettingsDialog(
+            viewModel = viewModel,
+            onDismiss = { showSettingsDialog = false }
+        )
+    }
+    
+    // 手动输入对话框
+    if (showManualInputDialog) {
+        ManualInputDialog(
+            viewModel = viewModel,
+            onDismiss = { viewModel.closeManualInputDialog() }
+        )
+    }
+    
+    // 规则管理界面
+    if (showRuleManagement) {
+        RuleManagementScreen(
+            viewModel = viewModel,
+            onBack = { viewModel.closeRuleManagement() }
+        )
+    }
 }
 
 // ====================== 预览函数 ======================
-
-import com.mashangqujian.ui.theme.MashangqujianTheme
 
 /**
  * 预览：空状态 - 浅色主题
@@ -439,32 +487,40 @@ fun PermissionRequestCard(onRequestPermission: () -> Unit) {
 
 @Composable
 fun EmptyState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Sms,
                 contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-            )
-            Text(
-                text = "还没有取件记录",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-            Text(
-                text = "点击下方按钮扫描短信，或手动输入取件码",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
             )
         }
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "还没有取件记录",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "从顶部菜单扫描短信，或手动输入取件码",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+        )
     }
 }
 
@@ -476,25 +532,19 @@ fun ParcelList(
     onDelete: (Parcel) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf<Parcel?>(null) }
-    
-    // 按是否已取件分组
+
     val uncollectedParcels by remember(parcels) {
-        derivedStateOf {
-            parcels.filter { !it.isCollected }
-        }
+        derivedStateOf { parcels.filter { !it.isCollected } }
     }
-    
+
     val collectedParcels by remember(parcels) {
-        derivedStateOf {
-            parcels.filter { it.isCollected }
-        }
+        derivedStateOf { parcels.filter { it.isCollected } }
     }
-    
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // 未取件部分
         if (uncollectedParcels.isNotEmpty()) {
             item {
                 SectionHeader("待取件 (${uncollectedParcels.size})")
@@ -508,8 +558,7 @@ fun ParcelList(
                 )
             }
         }
-        
-        // 已取件部分
+
         if (collectedParcels.isNotEmpty()) {
             item {
                 SectionHeader("已取件 (${collectedParcels.size})")
@@ -559,13 +608,14 @@ fun SectionHeader(title: String) {
         text = title,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        fontWeight = FontWeight.Bold,
-        fontSize = 16.sp,
-        color = MaterialTheme.colorScheme.primary
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ParcelItem(
     parcel: Parcel,
@@ -576,24 +626,27 @@ fun ParcelItem(
 ) {
     val clipboardManager = LocalClipboardManager.current
     var showMenu by remember { mutableStateOf(false) }
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isCollected) {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             } else {
                 MaterialTheme.colorScheme.surface
             }
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isCollected) 0.dp else 1.dp
         )
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // 头部：快递公司和取件码
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -602,14 +655,14 @@ fun ParcelItem(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 快递公司标签
+                    // 快递公司标签 - iOS 风格圆角
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
                             )
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
                         Text(
                             text = parcel.courierCompany,
@@ -618,18 +671,18 @@ fun ParcelItem(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
                     // 取件码
                     Text(
                         text = parcel.parcelCode,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
-                
+
                 // 更多按钮
                 Box {
                     IconButton(
@@ -678,19 +731,19 @@ fun ParcelItem(
                     }
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             // 地址
             Text(
                 text = parcel.address,
                 fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                 maxLines = 2
             )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             // 底部信息
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -706,9 +759,9 @@ fun ParcelItem(
                         }
                     },
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                 )
-                
+
                 if (isCollected) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -716,14 +769,14 @@ fun ParcelItem(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "已取件",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                         )
                     }
                 }

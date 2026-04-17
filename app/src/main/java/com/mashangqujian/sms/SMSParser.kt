@@ -1,67 +1,48 @@
 package com.mashangqujian.sms
 
 import com.mashangqujian.data.model.Parcel
+import com.mashangqujian.data.model.ParsingRule
+import com.mashangqujian.data.repository.RuleRepository
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 
 /**
  * 短信解析器 - 负责解析短信内容，提取取件码和地址信息
+ * 支持从持久化存储加载规则
  */
-class SMSParser {
+class SMSParser(private val ruleRepository: RuleRepository? = null) {
     
-    companion object {
-        // 预定义的快递公司识别规则
-        private val companyPatterns = mapOf(
-            "顺丰" to listOf(
-                Regex("""顺丰.*?取件码.*?(\d{4,8})"""),
-                Regex("""SF.*?(\d{4,8})""")
-            ),
-            "京东" to listOf(
-                Regex("""京东.*?取件码.*?(\d{4,6})"""),
-                Regex("""JD.*?(\d{4,6})""")
-            ),
-            "中通" to listOf(
-                Regex("""中通.*?取件码.*?(\d{3,6})"""),
-                Regex("""ZTO.*?(\d{3,6})""")
-            ),
-            "圆通" to listOf(
-                Regex("""圆通.*?取件码.*?(\d{3,6})"""),
-                Regex("""YTO.*?(\d{3,6})""")
-            ),
-            "韵达" to listOf(
-                Regex("""韵达.*?取件码.*?(\d{3,6})"""),
-                Regex("""YD.*?(\d{3,6})""")
-            ),
-            "菜鸟驿站" to listOf(
-                Regex("""菜鸟.*?取件码.*?(\d{3}-\d{4})"""),
-                Regex("""取件码.*?(\d{3}-\d{4})""")
-            ),
-            "邮政" to listOf(
-                Regex("""邮政.*?取件码.*?(\d{6,12})"""),
-                Regex("""EMS.*?(\d{6,12})""")
-            )
-        )
-        
-        // 地址提取规则
-        private val addressPatterns = listOf(
-            Regex("""到.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
-            Regex("""请到.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
-            Regex("""地址.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
-            Regex("""在.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
-            Regex("""于.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))""")
-        )
-        
-        // 通用取件码规则
-        private val generalParcelCodePatterns = listOf(
-            Regex("""取件码.*?(\d{3,8})"""),
-            Regex("""验证码.*?(\d{4,6})"""),
-            Regex("""提取码.*?(\d{4,6})"""),
-            Regex("""密码.*?(\d{4,6})"""),
-            Regex("""(\d{3}-\d{4})"""),
-            Regex("""(\d{4}-\d{3})"""),
-            Regex("""(\d{6})"""),
-            Regex("""(\d{5})"""),
-            Regex("""(\d{4})""")
-        )
-    }
+    // 通用取件码规则（作为后备）
+    // 支持格式：3-5-1234 (数字-数字-4位) / A3-1234 (字母数字-4位) / AB1234 / 纯数字等
+    private val generalParcelCodePatterns = listOf(
+        // 格式1: 数字-数字-4位数字 (如 3-5-1234, 12-34-5678)
+        Regex("""取件码.*?(\d{1,2}-\d{1,2}-\d{4})"""),
+        Regex("""(\d{1,2}-\d{1,2}-\d{4})"""),
+        // 格式2: 1-2位字母数字 + 连字符 + 4位数字 (如 A3-1234, AB-1234)
+        Regex("""取件码.*?([A-Za-z0-9]{1,2}-\d{4})"""),
+        Regex("""([A-Za-z]{1,2}\d{0,2}-\d{4})"""),
+        // 格式3: 1-2位字母 + 4位数字 (如 A1234, AB1234)
+        Regex("""([A-Za-z]{1,2}\d{4})"""),
+        // 格式4: 传统取件码格式
+        Regex("""取件码.*?(\d{3,8})"""),
+        Regex("""验证码.*?(\d{4,6})"""),
+        Regex("""提取码.*?(\d{4,6})"""),
+        Regex("""密码.*?(\d{4,6})"""),
+        Regex("""(\d{3}-\d{4})"""),
+        Regex("""(\d{4}-\d{3})"""),
+        Regex("""(\d{6})"""),
+        Regex("""(\d{5})"""),
+        Regex("""(\d{4})""")
+    )
+    
+    // 通用地址提取规则
+    private val generalAddressPatterns = listOf(
+        Regex("""到.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
+        Regex("""请到.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
+        Regex("""地址.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
+        Regex("""在.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))"""),
+        Regex("""于.*?((?:[\u4e00-\u9fa5]|\d)+.*?(?:驿站|快递|网点|小区|大厦|广场))""")
+    )
     
     /**
      * 解析短信内容，提取取件信息
@@ -73,14 +54,17 @@ class SMSParser {
     fun parseSMS(smsContent: String, sender: String, smsDate: Long): Parcel? {
         val normalizedContent = smsContent.trim()
         
+        // 获取启用的规则
+        val enabledRules = loadEnabledRules()
+        
         // 1. 识别快递公司
-        val company = detectCourierCompany(normalizedContent)
+        val company = detectCourierCompany(normalizedContent, enabledRules)
         
         // 2. 提取取件码
-        val parcelCode = extractParcelCode(normalizedContent, company)
+        val parcelCode = extractParcelCode(normalizedContent, company, enabledRules)
         
         // 3. 提取地址
-        val address = extractAddress(normalizedContent, company)
+        val address = extractAddress(normalizedContent, company, enabledRules)
         
         // 如果取件码为空，说明无法解析
         if (parcelCode.isEmpty()) {
@@ -98,27 +82,87 @@ class SMSParser {
     }
     
     /**
+     * 加载启用的规则
+     */
+    private fun loadEnabledRules(): List<ParsingRule> {
+        if (ruleRepository == null) {
+            return emptyList()
+        }
+        
+        return runBlocking {
+            try {
+                ruleRepository.getEnabledRules().first()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+    }
+    
+    /**
      * 检测快递公司
      */
-    private fun detectCourierCompany(content: String): String {
-        for ((company, patterns) in companyPatterns) {
-            for (pattern in patterns) {
-                if (pattern.containsMatchIn(content)) {
-                    return company
+    private fun detectCourierCompany(content: String, rules: List<ParsingRule>): String {
+        // 先尝试从持久化规则中匹配
+        for (rule in rules) {
+            if (rule.isEnabled) {
+                try {
+                    val pattern = Regex(rule.parcelCodePattern)
+                    if (pattern.containsMatchIn(content)) {
+                        // 更新匹配次数
+                        runBlocking {
+                            ruleRepository?.incrementMatchCount(rule.id)
+                        }
+                        return rule.companyName
+                    }
+                } catch (e: Exception) {
+                    // 正则表达式可能有误，跳过此规则
                 }
             }
         }
+        
         return ""
     }
     
     /**
      * 提取取件码
      */
-    private fun extractParcelCode(content: String, company: String): String {
-        // 先尝试特定公司的规则
-        companyPatterns[company]?.forEach { pattern ->
-            val match = pattern.find(content)
-            match?.groups?.get(1)?.value?.let { return it }
+    private fun extractParcelCode(content: String, company: String, rules: List<ParsingRule>): String {
+        // 先尝试特定公司的规则（自定义规则优先）
+        val companyRules = rules.filter { it.companyName == company && it.isEnabled }
+        
+        // 优先使用自定义规则
+        val customRules = companyRules.filter { it.isCustom }
+        for (rule in customRules) {
+            try {
+                val pattern = Regex(rule.parcelCodePattern)
+                val match = pattern.find(content)
+                match?.groups?.get(1)?.value?.let { 
+                    runBlocking {
+                        ruleRepository?.incrementMatchCount(rule.id)
+                    }
+                    return it 
+                }
+            } catch (e: Exception) {
+                // 跳过无效正则
+            }
+        }
+        
+        // 然后尝试预设规则
+        val presetRules = companyRules.filter { !it.isCustom }
+        for (rule in presetRules) {
+            try {
+                val pattern = Regex(rule.parcelCodePattern)
+                val match = pattern.find(content)
+                match?.groups?.get(1)?.value?.let { 
+                    runBlocking {
+                        ruleRepository?.incrementMatchCount(rule.id)
+                    }
+                    return it 
+                }
+            } catch (e: Exception) {
+                // 跳过无效正则
+            }
         }
         
         // 如果没找到，尝试通用规则
@@ -133,8 +177,29 @@ class SMSParser {
     /**
      * 提取取件地址
      */
-    private fun extractAddress(content: String, company: String): String {
-        for (pattern in addressPatterns) {
+    private fun extractAddress(content: String, company: String, rules: List<ParsingRule>): String {
+        // 先尝试特定公司的地址规则
+        val companyRules = rules.filter { it.companyName == company && it.isEnabled }
+        
+        for (rule in companyRules) {
+            rule.addressPattern?.let { addressPattern ->
+                try {
+                    val pattern = Regex(addressPattern)
+                    val match = pattern.find(content)
+                    match?.groups?.get(1)?.value?.let { 
+                        runBlocking {
+                            ruleRepository?.incrementMatchCount(rule.id)
+                        }
+                        return it.trim() 
+                    }
+                } catch (e: Exception) {
+                    // 跳过无效正则
+                }
+            }
+        }
+        
+        // 尝试通用地址规则
+        for (pattern in generalAddressPatterns) {
             val match = pattern.find(content)
             match?.groups?.get(1)?.value?.let { return it.trim() }
         }
@@ -164,7 +229,22 @@ class SMSParser {
      * 获取所有支持的快递公司列表
      */
     fun getSupportedCompanies(): List<String> {
-        return companyPatterns.keys.toList()
+        if (ruleRepository == null) {
+            return listOf("顺丰", "京东", "中通", "圆通", "韵达", "菜鸟驿站", "邮政")
+        }
+        
+        return runBlocking {
+            try {
+                ruleRepository.getAllRules().first()
+                    .filter { it.isEnabled }
+                    .map { it.companyName }
+                    .distinct()
+                    .sorted()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                listOf("顺丰", "京东", "中通", "圆通", "韵达", "菜鸟驿站", "邮政")
+            }
+        }
     }
     
     /**
@@ -174,12 +254,39 @@ class SMSParser {
      * @param addressPattern 地址正则表达式
      */
     fun addCustomRule(company: String, parcelCodePattern: Regex, addressPattern: Regex? = null) {
-        val patterns = companyPatterns[company]?.toMutableList() ?: mutableListOf()
-        patterns.add(parcelCodePattern)
-        companyPatterns[company] = patterns
-        
-        addressPattern?.let {
-            addressPatterns.add(it)
+        // 这个方法现在只是保持向后兼容
+        // 实际应该通过RuleRepository添加规则
+    }
+    
+    /**
+     * 测试规则是否匹配文本
+     * @param rule 要测试的规则
+     * @param testText 测试文本
+     * @return 匹配结果，包含匹配到的取件码和地址
+     */
+    data class RuleTestResult(
+        val parcelCodeMatch: String?,
+        val addressMatch: String?,
+        val error: String?
+    )
+    
+    fun testRule(rule: ParsingRule, testText: String): RuleTestResult {
+        return try {
+            val parcelCodePattern = Regex(rule.parcelCodePattern)
+            val parcelCodeMatch = parcelCodePattern.find(testText)?.groups?.get(1)?.value
+            
+            val addressMatch = rule.addressPattern?.let { addressPattern ->
+                try {
+                    val pattern = Regex(addressPattern)
+                    pattern.find(testText)?.groups?.get(1)?.value?.trim()
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            
+            RuleTestResult(parcelCodeMatch, addressMatch, null)
+        } catch (e: Exception) {
+            RuleTestResult(null, null, "正则表达式错误: ${e.message}")
         }
     }
 }

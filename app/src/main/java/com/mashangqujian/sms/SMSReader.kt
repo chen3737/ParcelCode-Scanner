@@ -6,6 +6,9 @@ import android.provider.Telephony
 import androidx.core.database.getStringOrNull
 import com.mashangqujian.data.model.Parcel
 
+// 为Telephony.Sms创建别名以简化代码
+import android.provider.Telephony.Sms
+
 /**
  * 短信读取器 - 负责从系统读取短信
  */
@@ -21,14 +24,14 @@ class SMSReader(private val contentResolver: ContentResolver) {
         val smsList = mutableListOf<SMSItem>()
         
         val projection = arrayOf(
-            Telephony.Sms.ADDRESS,
-            Telephony.Sms.BODY,
-            Telephony.Sms.DATE,
-            Telephony.Sms.TYPE
+            Sms.ADDRESS,
+            Sms.BODY,
+            Sms.DATE,
+            Sms.TYPE
         )
         
         val selection = if (startDate > 0) {
-            "${Telephony.Sms.DATE} >= ?"
+            "${Sms.DATE} >= ?"
         } else {
             null
         }
@@ -39,12 +42,12 @@ class SMSReader(private val contentResolver: ContentResolver) {
             null
         }
         
-        val sortOrder = "${Telephony.Sms.DATE} DESC"
+        val sortOrder = "${Sms.DATE} DESC"
         
         var cursor: Cursor? = null
         try {
             cursor = contentResolver.query(
-                Telephony.Sms.CONTENT_URI,
+                Sms.CONTENT_URI,
                 projection,
                 selection,
                 selectionArgs,
@@ -54,13 +57,13 @@ class SMSReader(private val contentResolver: ContentResolver) {
             cursor?.use {
                 var count = 0
                 while (it.moveToNext() && (limit == 0 || count < limit)) {
-                    val address = it.getStringOrNull(it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)) ?: ""
-                    val body = it.getStringOrNull(it.getColumnIndexOrThrow(Telephony.Sms.BODY)) ?: ""
-                    val date = it.getLong(it.getColumnIndexOrThrow(Telephony.Sms.DATE))
-                    val type = it.getInt(it.getColumnIndexOrThrow(Telephony.Sms.TYPE))
+                    val address = it.getStringOrNull(it.getColumnIndexOrThrow(Sms.ADDRESS)) ?: ""
+                    val body = it.getStringOrNull(it.getColumnIndexOrThrow(Sms.BODY)) ?: ""
+                    val date = it.getLong(it.getColumnIndexOrThrow(Sms.DATE))
+                    val type = it.getInt(it.getColumnIndexOrThrow(Sms.TYPE))
                     
                     // 只处理收到的短信（TYPE = 1）
-                    if (type == Telephony.Sms.MESSAGE_TYPE_INBOX) {
+                    if (type == Sms.MESSAGE_TYPE_INBOX) {
                         smsList.add(SMSItem(
                             sender = address,
                             content = body,
@@ -124,10 +127,10 @@ class SMSReader(private val contentResolver: ContentResolver) {
     fun getTotalSMSCount(): Int {
         return try {
             val cursor = contentResolver.query(
-                Telephony.Sms.CONTENT_URI,
+                Sms.CONTENT_URI,
                 null,
-                "${Telephony.Sms.TYPE} = ?",
-                arrayOf(Telephony.Sms.MESSAGE_TYPE_INBOX.toString()),
+                "${Sms.TYPE} = ?",
+                arrayOf(Sms.MESSAGE_TYPE_INBOX.toString()),
                 null
             )
             

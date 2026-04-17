@@ -4,19 +4,19 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.SharedPreferences
 import com.mashangqujian.data.database.AppDatabase
 import com.mashangqujian.data.model.Parcel
+import com.mashangqujian.data.model.ParsingRule
+import com.mashangqujian.data.repository.RuleRepository
 import com.mashangqujian.sms.SMSParser
 import com.mashangqujian.sms.SMSReader
 import kotlinx.coroutines.launch
-import java.util.Date
 
 class MainViewModel : ViewModel() {
     
@@ -28,13 +28,24 @@ class MainViewModel : ViewModel() {
     val errorMessage = mutableStateOf<String?>(null)
     val selectedParcel = mutableStateOf<Parcel?>(null)
     
+    // 手动输入相关状态
+    val showAddManuallyDialog = mutableStateOf(false)
+    val manualSMSText = mutableStateOf("")
+    val keepDialogOpenOnFailure = mutableStateOf(false)
+    
+    // 规则管理相关状态
+    val showRuleManagement = mutableStateOf(false)
+    val allRules = mutableStateListOf<ParsingRule>()
+    
     // 依赖
     private lateinit var database: AppDatabase
     private lateinit var smsReader: SMSReader
     private lateinit var smsParser: SMSParser
+    private lateinit var ruleRepository: RuleRepository
+    private var appContext: Context? = null
     
-    // 权限请求
-    private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
+    // 权限回调引用（由Activity提供）
+    private var permissionCallback: (() -> Unit)? = null
     
     init {
         initializeComponents()
@@ -42,14 +53,51 @@ class MainViewModel : ViewModel() {
     
     private fun initializeComponents() {
         smsParser = SMSParser()
+        // 数据库和SMSReader将在Activity中初始化
     }
     
     fun initializeDatabase(context: Context) {
         database = AppDatabase.getInstance(context)
+        ruleRepository = RuleRepository(context)
+        appContext = context.applicationContext
+    }
+
+    /**
+     * 获取扫描天数（从SharedPreferences，默认7天）
+     */
+    private fun getScanDays(): Long {
+        return try {
+            val prefs = appContext?.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            prefs?.getInt("scan_days", 7)?.toLong() ?: 7L
+        } catch (e: Exception) {
+            7L
+        }
     }
     
     fun initializeSMSReader(context: Context) {
         smsReader = SMSReader(context.contentResolver)
+        // 重新初始化解析器以包含规则仓库
+        smsParser = SMSParser(ruleRepository)
+        
+        // 初始化默认规则
+        viewModelScope.launch {
+            ruleRepository.initializeDefaultRules()
+        }
+    }
+    
+    /**
+     * 初始化所有组件
+     */
+    fun initializeAllComponents(context: Context) {
+        initializeDatabase(context)
+        initializeSMSReader(context)
+    }
+    
+    /**
+     * 检查组件是否已初始化
+     */
+    fun areComponentsInitialized(): Boolean {
+        return ::database.isInitialized && ::smsReader.isInitialized && ::smsParser.isInitialized && ::ruleRepository.isInitialized
     }
     
     fun loadParcels() {
@@ -57,17 +105,92 @@ class MainViewModel : ViewModel() {
             try {
                 isLoading.value = true
                 errorMessage.value = null
-                
-                val allParcels = database.parcelDao().getAllParcels()
-                parcels.clear()
-                parcels.addAll(allParcels)
-                
-                // 更新未取件计数
-                uncollectedCount.value = parcels.count { !it.isCollected }
+
+                // 先获取一次初始数据，设置加载状态为false
+                database.parcelDao().getAllParcels().collect { allParcels ->
+                    parcels.clear()
+                    parcels.addAll(allParcels)
+                    uncollectedCount.value = parcels.count { !it.isCollected }
+                    isLoading.value = false // 收到第一次数据后关闭loading
+                }
             } catch (e: Exception) {
                 errorMessage.value = "加载数据失败: ${e.message}"
-            } finally {
                 isLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * 加载所有规则
+     */
+    fun loadAllRules() {
+        viewModelScope.launch {
+            try {
+                isLoading.value = true
+                ruleRepository.getAllRules().collect { rules ->
+                    allRules.clear()
+                    allRules.addAll(rules.sortedBy { it.companyName })
+                    isLoading.value = false
+                }
+            } catch (e: Exception) {
+                errorMessage.value = "加载规则失败: ${e.message}"
+                isLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * 添加规则
+     */
+    fun addRule(rule: ParsingRule) {
+        viewModelScope.launch {
+            try {
+                ruleRepository.insert(rule)
+                loadAllRules()
+            } catch (e: Exception) {
+                errorMessage.value = "添加规则失败: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * 更新规则
+     */
+    fun updateRule(rule: ParsingRule) {
+        viewModelScope.launch {
+            try {
+                ruleRepository.updateRule(rule)
+                loadAllRules()
+            } catch (e: Exception) {
+                errorMessage.value = "更新规则失败: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * 删除规则
+     */
+    fun deleteRule(rule: ParsingRule) {
+        viewModelScope.launch {
+            try {
+                ruleRepository.deleteRule(rule)
+                loadAllRules()
+            } catch (e: Exception) {
+                errorMessage.value = "删除规则失败: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * 启用/禁用规则
+     */
+    fun setRuleEnabled(ruleId: String, enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                ruleRepository.setRuleEnabled(ruleId, enabled)
+                loadAllRules()
+            } catch (e: Exception) {
+                errorMessage.value = "更新规则状态失败: ${e.message}"
             }
         }
     }
@@ -80,17 +203,32 @@ class MainViewModel : ViewModel() {
         hasSMSPermission.value = hasPermission
     }
     
-    fun requestSMSPermission(context: Activity) {
-        requestPermissionLauncher.launch(Manifest.permission.READ_SMS)
+    fun requestSMSPermission(activity: android.app.Activity) {
+        // 调用Activity中的权限请求方法
+        if (activity is com.mashangqujian.ui.MainActivity) {
+            activity.requestSMSPermission()
+        } else {
+            errorMessage.value = "权限请求失败：无法访问MainActivity"
+        }
     }
     
-    fun onPermissionResult(requestCode: Int, grantResults: IntArray) {
+    fun onPermissionGranted() {
+        hasSMSPermission.value = true
+        errorMessage.value = "短信权限已授予，现在可以手动扫描短信或手动输入短信内容"
+    }
+    
+    fun onPermissionDenied() {
+        hasSMSPermission.value = false
+        errorMessage.value = "短信读取权限被拒绝，部分功能将无法使用"
+    }
+    
+    fun onPermissionResult(@Suppress("UNUSED_PARAMETER") requestCode: Int, grantResults: IntArray) {
+        // 保持向后兼容性，处理旧的权限回调方式
         if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            hasSMSPermission.value = true
-            // 权限获取成功后扫描短信
-            scanSMS()
+            onPermissionGranted()
+            // 不再自动扫描短信，改为用户手动触发
         } else {
-            errorMessage.value = "短信读取权限被拒绝，部分功能将无法使用"
+            onPermissionDenied()
         }
     }
     
@@ -99,10 +237,11 @@ class MainViewModel : ViewModel() {
             try {
                 isLoading.value = true
                 errorMessage.value = null
-                
-                // 读取最近30天的短信
-                val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-                val smsItems = smsReader.readSMS(startDate = thirtyDaysAgo)
+
+                // 读取用户设置的扫描天数（默认7天）
+                val scanDays = getScanDays()
+                val startDate = System.currentTimeMillis() - (scanDays * 24L * 60 * 60 * 1000)
+                val smsItems = smsReader.readSMS(startDate = startDate)
                 
                 // 解析为取件记录
                 val newParcels = smsReader.parseToParcels(smsItems, smsParser)
@@ -242,5 +381,68 @@ class MainViewModel : ViewModel() {
     
     fun getCompanies(): List<String> {
         return smsParser.getSupportedCompanies()
+    }
+    
+    /**
+     * 清理所有数据
+     */
+    fun clearAllData() {
+        viewModelScope.launch {
+            try {
+                database.parcelDao().deleteAllParcels()
+                loadParcels()
+                errorMessage.value = "所有数据已清理"
+            } catch (e: Exception) {
+                errorMessage.value = "清理失败: ${e.message}"
+            }
+        }
+    }
+    
+    /**
+     * 打开手动输入对话框
+     */
+    fun openManualInputDialog() {
+        manualSMSText.value = ""
+        keepDialogOpenOnFailure.value = false
+        showAddManuallyDialog.value = true
+    }
+    
+    /**
+     * 关闭手动输入对话框
+     */
+    fun closeManualInputDialog() {
+        showAddManuallyDialog.value = false
+    }
+    
+    /**
+     * 手动添加文本并处理结果
+     */
+    fun addManually() {
+        val text = manualSMSText.value.trim()
+        if (text.isEmpty()) {
+            errorMessage.value = "请输入短信内容"
+            keepDialogOpenOnFailure.value = true
+            return
+        }
+        
+        parseAndAddText(text)
+        
+        // 如果解析成功，关闭对话框；否则保持打开
+        // 这个逻辑在parseAndAddText的响应中处理
+    }
+    
+    /**
+     * 打开规则管理界面
+     */
+    fun openRuleManagement() {
+        showRuleManagement.value = true
+        loadAllRules()
+    }
+    
+    /**
+     * 关闭规则管理界面
+     */
+    fun closeRuleManagement() {
+        showRuleManagement.value = false
     }
 }

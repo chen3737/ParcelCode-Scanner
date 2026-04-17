@@ -2,8 +2,6 @@ package com.mashangqujian.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import androidx.room.TypeConverters
-import java.util.Date
 
 /**
  * 取件记录实体类

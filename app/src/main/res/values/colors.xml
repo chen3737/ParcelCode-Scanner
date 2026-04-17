@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- iOS简约蓝色方案颜色 -->
+    <color name="ios_blue_primary">#FF007AFF</color>
+    <color name="ios_blue_secondary">#FF5AC8FA</color>
+    <color name="ios_green">#FF34C759</color>
+    <color name="ios_orange">#FFFF9500</color>
+    <color name="ios_red">#FFFF3B30</color>
+    <color name="ios_purple">#FFAF52DE</color>
+    
+    <!-- 背景和表面颜色 -->
+    <color name="background_white">#FFFFFFFF</color>
+    <color name="background_light_gray">#FFF5F5F7</color>
+    <color name="surface_white">#FFFFFFFF</color>
+    <color name="surface_light">#FFF2F2F7</color>
+    
+    <!-- 文字颜色 -->
+    <color name="text_primary">#FF1D1D1F</color>
+    <color name="text_secondary">#FF8E8E93</color>
+    <color name="text_tertiary">#FFC7C7CC</color>
+    <color name="text_on_primary">#FFFFFFFF</color>
+    
+    <!-- 状态颜色 -->
+    <color name="success_green">#FF34C759</color>
+    <color name="warning_orange">#FFFF9500</color>
+    <color name="error_red">#FFFF3B30</color>
+    <color name="info_blue">#FF007AFF</color>
+    
+    <!-- 传统颜色（兼容现有代码） -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>
