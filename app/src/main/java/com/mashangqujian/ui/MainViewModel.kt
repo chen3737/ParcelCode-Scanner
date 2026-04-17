@@ -36,6 +36,11 @@ class MainViewModel : ViewModel() {
     // 规则管理相关状态
     val showRuleManagement = mutableStateOf(false)
     val allRules = mutableStateListOf<ParsingRule>()
+
+    // 粘贴板检测相关状态
+    val showClipboardDialog = mutableStateOf(false)
+    val clipboardContent = mutableStateOf("")
+    val clipboardParsedParcel = mutableStateOf<Parcel?>(null)
     
     // 依赖
     private lateinit var database: AppDatabase
@@ -444,5 +449,54 @@ class MainViewModel : ViewModel() {
      */
     fun closeRuleManagement() {
         showRuleManagement.value = false
+    }
+
+    /**
+     * 检查粘贴板内容并尝试解析取件码
+     */
+    fun checkClipboard(context: android.content.Context) {
+        try {
+            val clipboardManager = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+            val clip = clipboardManager.primaryClip
+            if (clip == null || clip.itemCount == 0) return
+
+            val text = clip.getItemAt(0).coerceToText(context).toString().trim()
+            if (text.isEmpty()) return
+
+            // 尝试解析粘贴板内容
+            val parcel = smsParser.parseSMS(text, "粘贴板", System.currentTimeMillis())
+            if (parcel != null) {
+                clipboardContent.value = text
+                clipboardParsedParcel.value = parcel
+                showClipboardDialog.value = true
+            }
+        } catch (e: Exception) {
+            // 粘贴板读取失败，静默处理
+        }
+    }
+
+    /**
+     * 确认添加粘贴板解析的取件码
+     */
+    fun confirmAddFromClipboard() {
+        val parcel = clipboardParsedParcel.value ?: return
+        viewModelScope.launch {
+            try {
+                database.parcelDao().insert(parcel)
+                loadParcels()
+                errorMessage.value = "成功添加取件码: ${parcel.parcelCode}"
+            } catch (e: Exception) {
+                errorMessage.value = "添加失败: ${e.message}"
+            }
+        }
+        showClipboardDialog.value = false
+    }
+
+    /**
+     * 取消粘贴板对话框
+     */
+    fun dismissClipboardDialog() {
+        showClipboardDialog.value = false
     }
 }

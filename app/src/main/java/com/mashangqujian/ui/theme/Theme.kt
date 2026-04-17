@@ -166,8 +166,9 @@ fun MashangqujianTheme(
         darkTheme -> BlueDarkColorScheme
         else -> BlueLightColorScheme
     }
-    
-    MaterialTheme(
+
+    // iOS 液态风格：增加背景模糊效果
+    androidx.compose.material3.MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
         content = content

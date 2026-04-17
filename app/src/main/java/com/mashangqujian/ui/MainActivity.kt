@@ -50,6 +50,9 @@ class MainActivity : ComponentActivity() {
                 
                 // 处理从其他应用分享的文本
                 handleSharedText()
+
+                // 检查粘贴板内容
+                viewModel.checkClipboard(this)
             } else {
                 Log.e("MainActivity", "组件初始化失败")
                 // 显示错误消息或重试机制

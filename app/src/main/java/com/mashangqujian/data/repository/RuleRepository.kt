@@ -141,6 +141,7 @@ class RuleRepository(context: Context) {
      * 初始化预设规则
      */
     suspend fun initializeDefaultRules() {
+        // 检查顺丰是否有规则（代表预设规则已初始化）
         val existingCount = ruleDao.getRuleCount()
         if (existingCount > 0) {
             return
@@ -151,13 +152,12 @@ class RuleRepository(context: Context) {
     }
 
     /**
-     * 创建预设规则
+     * 创建预设规则（每个快递公司仅一条）
      */
     private fun createDefaultRules(): List<ParsingRule> {
         return listOf(
-            // 顺丰
             ParsingRule(
-                id = "顺丰_取件码1",
+                id = "顺丰",
                 companyName = "顺丰",
                 codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
@@ -170,22 +170,7 @@ class RuleRepository(context: Context) {
                 smsExample = "【顺丰】您的包裹已到达XX小区丰巢快递柜，取件码：123456"
             ),
             ParsingRule(
-                id = "顺丰_英文1",
-                companyName = "顺丰",
-                codeKeyword = "code",
-                codeFormat = CodeFormatType.DIGITS.name,
-                codeMinDigits = 4,
-                codeMaxDigits = 8,
-                addressKeyword = null,
-                isCustom = false,
-                isEnabled = true,
-                description = "顺丰英文版取件码规则",
-                smsExample = "SF parcel ready, code: 123456"
-            ),
-
-            // 京东
-            ParsingRule(
-                id = "京东_取件码1",
+                id = "京东",
                 companyName = "京东",
                 codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
@@ -198,22 +183,7 @@ class RuleRepository(context: Context) {
                 smsExample = "【京东】您的包裹已到达XX驿站，取件码：123456"
             ),
             ParsingRule(
-                id = "京东_英文1",
-                companyName = "京东",
-                codeKeyword = "code",
-                codeFormat = CodeFormatType.DIGITS.name,
-                codeMinDigits = 4,
-                codeMaxDigits = 6,
-                addressKeyword = null,
-                isCustom = false,
-                isEnabled = true,
-                description = "京东英文版取件码规则",
-                smsExample = "JD parcel ready, code: 123456"
-            ),
-
-            // 中通
-            ParsingRule(
-                id = "中通_取件码1",
+                id = "中通",
                 companyName = "中通",
                 codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
@@ -226,22 +196,7 @@ class RuleRepository(context: Context) {
                 smsExample = "【中通】您的包裹已到达XX快递点，取件码：123456"
             ),
             ParsingRule(
-                id = "中通_英文1",
-                companyName = "中通",
-                codeKeyword = "code",
-                codeFormat = CodeFormatType.DIGITS.name,
-                codeMinDigits = 3,
-                codeMaxDigits = 6,
-                addressKeyword = null,
-                isCustom = false,
-                isEnabled = true,
-                description = "中通英文版取件码规则",
-                smsExample = "ZTO parcel ready, code: 123456"
-            ),
-
-            // 圆通
-            ParsingRule(
-                id = "圆通_取件码1",
+                id = "圆通",
                 companyName = "圆通",
                 codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
@@ -254,22 +209,7 @@ class RuleRepository(context: Context) {
                 smsExample = "【圆通】您的包裹已到达XX快递点，取件码：123456"
             ),
             ParsingRule(
-                id = "圆通_英文1",
-                companyName = "圆通",
-                codeKeyword = "code",
-                codeFormat = CodeFormatType.DIGITS.name,
-                codeMinDigits = 3,
-                codeMaxDigits = 6,
-                addressKeyword = null,
-                isCustom = false,
-                isEnabled = true,
-                description = "圆通英文版取件码规则",
-                smsExample = "YTO parcel ready, code: 123456"
-            ),
-
-            // 韵达
-            ParsingRule(
-                id = "韵达_取件码1",
+                id = "韵达",
                 companyName = "韵达",
                 codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
@@ -282,22 +222,7 @@ class RuleRepository(context: Context) {
                 smsExample = "【韵达】您的包裹已到达XX快递点，取件码：123456"
             ),
             ParsingRule(
-                id = "韵达_英文1",
-                companyName = "韵达",
-                codeKeyword = "code",
-                codeFormat = CodeFormatType.DIGITS.name,
-                codeMinDigits = 3,
-                codeMaxDigits = 6,
-                addressKeyword = null,
-                isCustom = false,
-                isEnabled = true,
-                description = "韵达英文版取件码规则",
-                smsExample = "YD parcel ready, code: 123456"
-            ),
-
-            // 菜鸟驿站
-            ParsingRule(
-                id = "菜鸟驿站_取件码1",
+                id = "菜鸟驿站",
                 companyName = "菜鸟驿站",
                 codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
@@ -309,10 +234,8 @@ class RuleRepository(context: Context) {
                 description = "菜鸟驿站取件码规则",
                 smsExample = "【菜鸟驿站】您的包裹已到达XX驿站，取件码：123-4567"
             ),
-
-            // 邮政
             ParsingRule(
-                id = "邮政_取件码1",
+                id = "邮政",
                 companyName = "邮政",
                 codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
@@ -325,17 +248,17 @@ class RuleRepository(context: Context) {
                 smsExample = "【邮政】您的包裹已到达XX邮局，取件码：12345678"
             ),
             ParsingRule(
-                id = "邮政_EMS1",
-                companyName = "邮政",
-                codeKeyword = "code",
+                id = "EMS",
+                companyName = "EMS",
+                codeKeyword = "取件码",
                 codeFormat = CodeFormatType.DIGITS.name,
-                codeMinDigits = 6,
-                codeMaxDigits = 12,
-                addressKeyword = null,
+                codeMinDigits = 4,
+                codeMaxDigits = 8,
+                addressKeyword = "到达",
                 isCustom = false,
                 isEnabled = true,
                 description = "EMS快递取件码规则",
-                smsExample = "EMS parcel ready, code: 12345678"
+                smsExample = "【EMS】您的包裹已到达XX网点，取件码：123456"
             )
         ).map { rule ->
             rule.copy(
