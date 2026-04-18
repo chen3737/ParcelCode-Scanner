@@ -6,15 +6,16 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.mashangqujian.data.dao.DeletedParcelHistoryDao
 import com.mashangqujian.data.dao.ParcelDao
 import com.mashangqujian.data.dao.RuleDao
+import com.mashangqujian.data.model.DeletedParcelHistory
 import com.mashangqujian.data.model.Parcel
 import com.mashangqujian.data.model.ParsingRule
 
 // 从版本2升级到版本4的迁移
 val MIGRATION_2_4 = object : Migration(2, 4) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        // 删除旧表并创建新表
         db.execSQL("DROP TABLE IF EXISTS parsing_rules")
         db.execSQL("""
             CREATE TABLE parsing_rules (
@@ -45,7 +46,6 @@ val MIGRATION_2_4 = object : Migration(2, 4) {
     }
 }
 
-// 从版本4升级到版本5的迁移：新增 code_prefix 和 code_suffix 字段
 val MIGRATION_4_5 = object : Migration(4, 5) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE parsing_rules ADD COLUMN code_prefix TEXT")
@@ -53,22 +53,39 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
-// 从版本5升级到版本6的迁移：parcels 表新增 matched_rule 字段
 val MIGRATION_5_6 = object : Migration(5, 6) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE parcels ADD COLUMN matched_rule TEXT NOT NULL DEFAULT ''")
     }
 }
 
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE deleted_parcels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                parcel_code TEXT NOT NULL,
+                address TEXT NOT NULL,
+                courier_company TEXT NOT NULL,
+                sms_content TEXT NOT NULL,
+                sms_date INTEGER NOT NULL,
+                matched_rule TEXT NOT NULL DEFAULT '',
+                deleted_at INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+    }
+}
+
 @Database(
-    entities = [Parcel::class, ParsingRule::class],
-    version = 6,
+    entities = [Parcel::class, ParsingRule::class, DeletedParcelHistory::class],
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun parcelDao(): ParcelDao
     abstract fun ruleDao(): RuleDao
+    abstract fun deletedParcelHistoryDao(): DeletedParcelHistoryDao
 
     companion object {
         @Volatile
@@ -81,7 +98,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mashangqujian_db"
                 )
-                .addMigrations(MIGRATION_2_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(MIGRATION_2_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .fallbackToDestructiveMigration()
                 .build()
 

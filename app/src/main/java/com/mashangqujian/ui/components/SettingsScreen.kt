@@ -147,6 +147,14 @@ fun SettingsPage(viewModel: MainViewModel) {
                 onClick = { viewModel.openRuleManagement() }
             )
 
+            // 删除历史
+            SettingsActionRow(
+                icon = Icons.Default.Delete,
+                title = "删除历史",
+                subtitle = "查看30天内删除的记录",
+                onClick = { viewModel.openDeleteHistory() }
+            )
+
             // 清理数据
             SettingsActionRow(
                 icon = Icons.Default.Storage,

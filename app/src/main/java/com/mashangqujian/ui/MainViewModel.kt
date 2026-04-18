@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.content.SharedPreferences
 import com.mashangqujian.data.database.AppDatabase
+import com.mashangqujian.data.model.DeletedParcelHistory
 import com.mashangqujian.data.model.Parcel
 import com.mashangqujian.data.model.ParsingRule
 import com.mashangqujian.data.repository.RuleRepository
@@ -43,6 +44,10 @@ class MainViewModel : ViewModel() {
 
     // 小米通知类短信权限引导
     val showXiaomiSMSPermissionGuide = mutableStateOf(false)
+
+    // 删除历史相关状态
+    val deletedHistory = mutableStateListOf<DeletedParcelHistory>()
+    val showDeleteHistoryScreen = mutableStateOf(false)
 
     // 依赖
     private lateinit var database: AppDatabase
@@ -369,8 +374,22 @@ class MainViewModel : ViewModel() {
     fun deleteParcel(parcel: Parcel) {
         viewModelScope.launch {
             try {
+                // 先保存到删除历史
+                val history = DeletedParcelHistory(
+                    parcelCode = parcel.parcelCode,
+                    address = parcel.address,
+                    courierCompany = parcel.courierCompany,
+                    smsContent = parcel.smsContent,
+                    smsDate = parcel.smsDate,
+                    matchedRule = parcel.matchedRule,
+                    deletedAt = System.currentTimeMillis()
+                )
+                database.deletedParcelHistoryDao().insert(history)
+
+                // 再删除原记录
                 database.parcelDao().delete(parcel)
                 loadParcels()
+                loadDeleteHistory()
                 errorMessage.value = "已删除取件码"
             } catch (e: Exception) {
                 errorMessage.value = "删除失败: ${e.message}"
@@ -514,5 +533,69 @@ class MainViewModel : ViewModel() {
      */
     fun dismissXiaomiSMSPermissionGuide() {
         showXiaomiSMSPermissionGuide.value = false
+    }
+
+    // ==================== 删除历史 ====================
+
+    /**
+     * 加载30天内的删除历史
+     */
+    fun loadDeleteHistory() {
+        viewModelScope.launch {
+            try {
+                val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
+                database.deletedParcelHistoryDao().getRecent(thirtyDaysAgo).collect { histories ->
+                    deletedHistory.clear()
+                    deletedHistory.addAll(histories)
+                }
+            } catch (e: Exception) {
+                // 忽略错误
+            }
+        }
+    }
+
+    /**
+     * 打开删除历史界面
+     */
+    fun openDeleteHistory() {
+        showDeleteHistoryScreen.value = true
+        loadDeleteHistory()
+    }
+
+    /**
+     * 关闭删除历史界面
+     */
+    fun closeDeleteHistory() {
+        showDeleteHistoryScreen.value = false
+    }
+
+    /**
+     * 单条删除删除历史
+     */
+    fun deleteHistoryItem(history: DeletedParcelHistory) {
+        viewModelScope.launch {
+            try {
+                database.deletedParcelHistoryDao().deleteById(history.id)
+                loadDeleteHistory()
+                errorMessage.value = "已清除历史记录"
+            } catch (e: Exception) {
+                errorMessage.value = "删除失败: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * 一键清除所有删除历史
+     */
+    fun clearDeleteHistory() {
+        viewModelScope.launch {
+            try {
+                database.deletedParcelHistoryDao().deleteAll()
+                loadDeleteHistory()
+                errorMessage.value = "删除历史已清空"
+            } catch (e: Exception) {
+                errorMessage.value = "清理失败: ${e.message}"
+            }
+        }
     }
 }

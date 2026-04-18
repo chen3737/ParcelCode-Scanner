@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
@@ -61,6 +62,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -92,6 +94,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mashangqujian.data.model.DeletedParcelHistory
 import com.mashangqujian.data.model.Parcel
 import com.mashangqujian.ui.MainViewModel
 import com.mashangqujian.ui.theme.MashangqujianTheme
@@ -233,6 +236,14 @@ fun MainScreen(viewModel: MainViewModel) {
         RuleManagementScreen(
             viewModel = viewModel,
             onBack = { viewModel.closeRuleManagement() }
+        )
+    }
+
+    // 删除历史界面
+    if (viewModel.showDeleteHistoryScreen.value) {
+        DeleteHistoryScreen(
+            viewModel = viewModel,
+            onBack = { viewModel.closeDeleteHistory() }
         )
     }
 
@@ -1082,6 +1093,221 @@ fun ClipboardConfirmDialog(
             }
         }
     )
+}
+
+// ==================== 删除历史界面 ====================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DeleteHistoryScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val history = viewModel.deletedHistory
+    var showClearConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf<DeletedParcelHistory?>(null) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("删除历史") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    if (history.isNotEmpty()) {
+                        IconButton(onClick = { showClearConfirm = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "清空历史")
+                        }
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            if (history.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text("暂无删除记录", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "30天内删除的记录将显示在这里",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(history, key = { it.id }) { item ->
+                        DeleteHistoryItem(
+                            history = item,
+                            onDelete = { showDeleteConfirm = item }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // 清空确认对话框
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("确认清空") },
+            text = { Text("确定要清空所有删除历史吗？") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.clearDeleteHistory()
+                        showClearConfirm = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("清空")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    // 单条删除确认
+    showDeleteConfirm?.let { item ->
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = null },
+            title = { Text("确认删除") },
+            text = { Text("确定要清除此条删除历史吗？") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteHistoryItem(item)
+                        showDeleteConfirm = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = null }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun DeleteHistoryItem(
+    history: DeletedParcelHistory,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = history.courierCompany,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = history.parcelCode,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = history.address,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        maxLines = 1
+                    )
+                    if (history.matchedRule.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "规则：${history.matchedRule}",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "删除于 ${formatDeleteTime(history.deletedAt)}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                    )
+                }
+
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatDeleteTime(timestamp: Long): String {
+    val now = System.currentTimeMillis()
+    val diff = now - timestamp
+    val days = diff / (1000 * 60 * 60 * 24)
+    val hours = (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+
+    return when {
+        days == 0L && hours == 0L -> "刚刚"
+        days == 0L -> "${hours}小时前"
+        days == 1L -> "昨天"
+        days < 7L -> "${days}天前"
+        else -> android.text.format.DateFormat.format("MM-dd", timestamp).toString()
+    }
 }
 
 // ==================== 原有组件（保持） ====================
