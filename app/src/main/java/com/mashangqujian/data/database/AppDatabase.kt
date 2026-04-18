@@ -62,8 +62,26 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
 val MIGRATION_6_7 = object : Migration(6, 7) {
     override fun migrate(db: SupportSQLiteDatabase) {
         db.execSQL("""
+            CREATE TABLE IF NOT EXISTS deleted_parcels (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                parcel_code TEXT NOT NULL,
+                address TEXT NOT NULL,
+                courier_company TEXT NOT NULL,
+                sms_content TEXT NOT NULL,
+                sms_date INTEGER NOT NULL,
+                matched_rule TEXT NOT NULL DEFAULT '',
+                deleted_at INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+    }
+}
+
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS deleted_parcels")
+        db.execSQL("""
             CREATE TABLE deleted_parcels (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                 parcel_code TEXT NOT NULL,
                 address TEXT NOT NULL,
                 courier_company TEXT NOT NULL,
@@ -78,7 +96,7 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
 
 @Database(
     entities = [Parcel::class, ParsingRule::class, DeletedParcelHistory::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -98,7 +116,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mashangqujian_db"
                 )
-                .addMigrations(MIGRATION_2_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_2_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .fallbackToDestructiveMigration()
                 .build()
 
