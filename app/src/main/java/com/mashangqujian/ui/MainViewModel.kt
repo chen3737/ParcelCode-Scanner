@@ -261,25 +261,33 @@ class MainViewModel : ViewModel() {
                 val scanDays = getScanDays()
                 val startDate = System.currentTimeMillis() - (scanDays * 24L * 60 * 60 * 1000)
                 val smsItems = smsReader.readSMS(startDate = startDate)
-                
+
                 // 解析为取件记录
-                val newParcels = smsReader.parseToParcels(smsItems, smsParser)
-                
+                val parsedParcels = smsReader.parseToParcels(smsItems, smsParser)
+
+                // 去重：过滤掉已存在的取件码
+                val existingCodes = parcels.map { it.parcelCode }.toSet()
+                val newParcels = parsedParcels.filter { it.parcelCode !in existingCodes }
+
                 // 保存到数据库
-                database.parcelDao().insertAll(newParcels)
-                
+                if (newParcels.isNotEmpty()) {
+                    database.parcelDao().insertAll(newParcels)
+                }
+
                 // 重新加载数据
                 loadParcels()
-                
+
                 // 显示结果
                 if (newParcels.isNotEmpty()) {
-                    errorMessage.value = "扫描完成，发现${newParcels.size}个取件码"
+                    val skippedCount = parsedParcels.size - newParcels.size
+                    val extraMsg = if (skippedCount > 0) "（已跳过${skippedCount}条重复）" else ""
+                    errorMessage.value = "扫描完成，新增${newParcels.size}个取件码$extraMsg"
                 } else {
                     // 小米设备读取不到短信时，引导用户开启通知类短信权限
                     if (isXiaomiDevice() && smsItems.isEmpty()) {
                         showXiaomiSMSPermissionGuide.value = true
                     } else {
-                        errorMessage.value = "扫描完成，未发现取件码"
+                        errorMessage.value = "扫描完成，未发现新取件码"
                     }
                 }
             } catch (e: Exception) {

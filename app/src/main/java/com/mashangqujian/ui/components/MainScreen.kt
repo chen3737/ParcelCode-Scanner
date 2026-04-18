@@ -168,11 +168,31 @@ fun MainScreen(viewModel: MainViewModel) {
                     actionIconContentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 actions = {
-                    // 手动添加按钮 - iOS 液态风格
-                    IOSLiquidIconButton(
-                        icon = Icons.Default.Add,
-                        onClick = { viewModel.openManualInputDialog() }
-                    )
+                    // 手动添加按钮 — 醒目胶囊样式
+                    Box(
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable { viewModel.openManualInputDialog() }
+                            .background(MaterialTheme.colorScheme.primary)
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "添加",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
+                        }
+                    }
 
                     // 扫描按钮 - iOS 液态风格，只显示图标
                     IOSLiquidIconButton(

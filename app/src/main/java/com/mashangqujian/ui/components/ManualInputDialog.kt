@@ -219,9 +219,7 @@ fun ManualInputDialog(
                             Text("添加成功")
                         }
                     } else {
-                        Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("识别并添加")
+                        Text("识别")
                     }
                 }
             }
