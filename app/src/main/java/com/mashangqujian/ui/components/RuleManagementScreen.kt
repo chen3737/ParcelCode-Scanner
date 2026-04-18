@@ -225,11 +225,11 @@ fun RuleManagementScreen(
                         selectedRuleForDelete = null
                     },
                     onConfirm = {
+                        showDeleteConfirm = false
+                        selectedRuleForDelete = null
                         scope.launch {
                             viewModel.deleteRule(rule)
                             snackbarHostState.showSnackbar("规则已删除")
-                            showDeleteConfirm = false
-                            selectedRuleForDelete = null
                         }
                     }
                 )
