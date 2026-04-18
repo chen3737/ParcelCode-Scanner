@@ -21,6 +21,8 @@ val MIGRATION_2_4 = object : Migration(2, 4) {
                 id TEXT NOT NULL PRIMARY KEY,
                 company_name TEXT NOT NULL,
                 code_keyword TEXT,
+                code_prefix TEXT,
+                code_suffix TEXT,
                 code_format TEXT NOT NULL DEFAULT 'DIGITS',
                 code_min_digits INTEGER NOT NULL DEFAULT 3,
                 code_max_digits INTEGER NOT NULL DEFAULT 8,
@@ -43,9 +45,17 @@ val MIGRATION_2_4 = object : Migration(2, 4) {
     }
 }
 
+// 从版本4升级到版本5的迁移：新增 code_prefix 和 code_suffix 字段
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE parsing_rules ADD COLUMN code_prefix TEXT")
+        db.execSQL("ALTER TABLE parsing_rules ADD COLUMN code_suffix TEXT")
+    }
+}
+
 @Database(
     entities = [Parcel::class, ParsingRule::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -64,7 +74,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mashangqujian_db"
                 )
-                .addMigrations(MIGRATION_2_4)
+                .addMigrations(MIGRATION_2_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigration()
                 .build()
 

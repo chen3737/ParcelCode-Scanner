@@ -31,7 +31,6 @@ class MainViewModel : ViewModel() {
     // 手动输入相关状态
     val showAddManuallyDialog = mutableStateOf(false)
     val manualSMSText = mutableStateOf("")
-    val keepDialogOpenOnFailure = mutableStateOf(false)
     
     // 规则管理相关状态
     val showRuleManagement = mutableStateOf(false)
@@ -83,11 +82,6 @@ class MainViewModel : ViewModel() {
         smsReader = SMSReader(context.contentResolver)
         // 重新初始化解析器以包含规则仓库
         smsParser = SMSParser(ruleRepository)
-        
-        // 初始化默认规则
-        viewModelScope.launch {
-            ruleRepository.initializeDefaultRules()
-        }
     }
     
     /**
@@ -408,7 +402,6 @@ class MainViewModel : ViewModel() {
      */
     fun openManualInputDialog() {
         manualSMSText.value = ""
-        keepDialogOpenOnFailure.value = false
         showAddManuallyDialog.value = true
     }
     
@@ -426,14 +419,10 @@ class MainViewModel : ViewModel() {
         val text = manualSMSText.value.trim()
         if (text.isEmpty()) {
             errorMessage.value = "请输入短信内容"
-            keepDialogOpenOnFailure.value = true
             return
         }
-        
+
         parseAndAddText(text)
-        
-        // 如果解析成功，关闭对话框；否则保持打开
-        // 这个逻辑在parseAndAddText的响应中处理
     }
     
     /**

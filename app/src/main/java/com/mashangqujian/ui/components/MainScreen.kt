@@ -128,16 +128,8 @@ fun MainScreen(viewModel: MainViewModel) {
             scope.launch {
                 snackbarHostState.showSnackbar(message)
                 viewModel.clearError()
-                if (message.contains("不包含有效的取件码") ||
-                    message.contains("解析失败") ||
-                    message.contains("添加失败") ||
-                    message.contains("请输入短信内容")
-                ) {
-                    viewModel.keepDialogOpenOnFailure.value = true
-                } else {
-                    if (showManualInputDialog) {
-                        viewModel.closeManualInputDialog()
-                    }
+                if (message.contains("成功添加取件码")) {
+                    viewModel.closeManualInputDialog()
                 }
             }
         }
@@ -653,9 +645,7 @@ fun SwipeableParcelItem(
                             offsetX = 0f
                         },
                         onHorizontalDrag = { _, dragAmount ->
-                            if (dragAmount < 0) {
-                                offsetX = (offsetX + dragAmount).coerceIn(-swipeThreshold * 1.2f, 0f)
-                            }
+                            offsetX = (offsetX + dragAmount).coerceIn(-swipeThreshold * 1.2f, 0f)
                         }
                     )
                 },

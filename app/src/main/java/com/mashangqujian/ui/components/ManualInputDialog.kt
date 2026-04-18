@@ -49,7 +49,6 @@ fun ManualInputDialog(
     onDismiss: () -> Unit
 ) {
     val manualSMSText by remember { viewModel.manualSMSText }
-    val keepDialogOpenOnFailure by remember { viewModel.keepDialogOpenOnFailure }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     
@@ -76,14 +75,6 @@ fun ManualInputDialog(
                     viewModel.manualSMSText.value = text
                 }
             }
-        }
-    }
-    
-    // 监听ViewModel中的keepDialogOpenOnFailure标志
-    LaunchedEffect(keepDialogOpenOnFailure) {
-        if (keepDialogOpenOnFailure) {
-            // 保持对话框打开，重置标志
-            viewModel.keepDialogOpenOnFailure.value = false
         }
     }
     
@@ -203,9 +194,6 @@ fun ManualInputDialog(
                             errorMessage = "请输入短信内容"
                             showErrorMessage = true
                             showSuccessMessage = false
-                            
-                            // 设置keepDialogOpen标志，让MainScreen知道保持对话框打开
-                            viewModel.keepDialogOpenOnFailure.value = true
                             return@Button
                         }
                         

@@ -31,6 +31,12 @@ data class ParsingRule(
     @ColumnInfo(name = "code_keyword")
     val codeKeyword: String? = null,
 
+    @ColumnInfo(name = "code_prefix")
+    val codePrefix: String? = null,
+
+    @ColumnInfo(name = "code_suffix")
+    val codeSuffix: String? = null,
+
     @ColumnInfo(name = "code_format")
     val codeFormat: String = CodeFormatType.DIGITS.name,
 
@@ -117,6 +123,19 @@ data class ParsingRule(
             } else {
                 "${Regex.escape(codeKeyword)}.*?$base"
             }
+        }
+
+        /**
+         * 根据前缀和后缀生成取件码正则
+         * 匹配模式: 前缀 + 可选空白 + (取件码内容) + 可选空白 + 后缀
+         */
+        fun generatePatternFromPrefixSuffix(
+            prefix: String,
+            suffix: String
+        ): String {
+            val escapedPrefix = Regex.escape(prefix)
+            val escapedSuffix = Regex.escape(suffix)
+            return "${escapedPrefix}\\s*([\\u4e00-\\u9fa5a-zA-Z0-9\\-]+?)\\s*${escapedSuffix}"
         }
 
         /**

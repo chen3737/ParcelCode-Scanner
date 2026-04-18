@@ -59,27 +59,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mashangqujian.data.model.CodeFormatType
 import com.mashangqujian.data.model.ParsingRule
 import com.mashangqujian.ui.MainViewModel
 import kotlinx.coroutines.launch
 
-// 预设选项
+// 预设公司名称（用于输入提示）
 val PRESET_COMPANIES = listOf("顺丰", "京东", "中通", "圆通", "韵达", "菜鸟驿站", "邮政", "EMS")
-val PRESET_CODE_KEYWORDS = listOf("取件码", "验证码", "提取码", "密码", "code")
-val PRESET_ADDRESS_KEYWORDS = listOf("到达", "请到", "地址", "在", "于")
-val PRESET_CODE_FORMATS = listOf(
-    CodeFormatType.DIGITS to "纯数字（如 123456）",
-    CodeFormatType.DIGIT_SEGMENTS to "数字段（如 3-5-1234）",
-    CodeFormatType.LETTER_DIGITS to "字母+数字（如 A3-1234）",
-)
-val PRESET_DIGIT_RANGES = listOf(
-    "3-6位" to (3 to 6),
-    "4-6位" to (4 to 6),
-    "4-8位" to (4 to 8),
-    "3-8位" to (3 to 8),
-    "6-12位" to (6 to 12),
-)
 
 /**
  * 规则管理屏幕 - 管理取件码识别规则
@@ -208,10 +193,10 @@ fun RuleManagementScreen(
                 saveButtonText = "添加",
                 onDismiss = { showAddDialog = false },
                 onSave = { rule ->
+                    showAddDialog = false
                     scope.launch {
                         viewModel.addRule(rule)
                         snackbarHostState.showSnackbar("规则已添加")
-                        showAddDialog = false
                     }
                 }
             )
@@ -265,7 +250,7 @@ fun RuleManagementScreen(
 }
 
 /**
- * 通用规则表单对话框 — 傻瓜式输入，自动生成正则
+ * 通用规则表单对话框 — 傻瓜式输入，从[前缀]到[后缀]
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -277,39 +262,21 @@ fun RuleFormDialog(
     onDismiss: () -> Unit,
     onSave: (ParsingRule) -> Unit
 ) {
-    // 表单状态 — 从现有规则预填或初始化
     var companyName by remember {
         mutableStateOf(initialRule?.companyName ?: "")
     }
     var companyExpanded by remember { mutableStateOf(false) }
 
-    var selectedFormatType by remember {
-        mutableStateOf(
-            initialRule?.formatType ?: CodeFormatType.DIGITS
-        )
+    var codePrefix by remember {
+        mutableStateOf(initialRule?.codePrefix ?: "")
     }
-    var formatExpanded by remember { mutableStateOf(false) }
-
-    var codeKeyword by remember {
-        mutableStateOf(initialRule?.codeKeyword ?: "")
+    var codeSuffix by remember {
+        mutableStateOf(initialRule?.codeSuffix ?: "")
     }
-    var keywordExpanded by remember { mutableStateOf(false) }
-
-    var selectedDigitRange by remember {
-        mutableStateOf(
-            if (initialRule != null) {
-                "${initialRule.codeMinDigits}-${initialRule.codeMaxDigits}位"
-            } else {
-                "4-6位"
-            }
-        )
-    }
-    var digitRangeExpanded by remember { mutableStateOf(false) }
 
     var addressKeyword by remember {
         mutableStateOf(initialRule?.addressKeyword ?: "")
     }
-    var addressExpanded by remember { mutableStateOf(false) }
 
     var smsExample by remember {
         mutableStateOf(initialRule?.smsExample ?: "")
@@ -319,28 +286,13 @@ fun RuleFormDialog(
         mutableStateOf(initialRule?.description ?: "")
     }
 
-    // 如果是编辑预设规则，尝试从正则反向解析
-    if (initialRule != null && isEditingPreset && initialRule.codeKeyword == null) {
-        LaunchedEffect(Unit) {
-            val parsed = ParsingRule.parseCodePattern(initialRule.parcelCodePattern)
-            if (parsed.keyword != null) codeKeyword = parsed.keyword
-            if (parsed.formatType != null) selectedFormatType = parsed.formatType
-            if (parsed.minDigits != null && parsed.maxDigits != null) {
-                selectedDigitRange = "${parsed.minDigits}-${parsed.maxDigits}位"
-            }
-            addressKeyword = ParsingRule.parseAddressKeyword(initialRule.addressPattern) ?: ""
-        }
-    }
-
     // 计算生成的正则表达式（用于预览）
-    val generatedCodePattern = remember(codeKeyword, selectedFormatType, selectedDigitRange) {
-        val pattern = ParsingRule.generateParcelCodePattern(
-            formatType = selectedFormatType,
-            codeKeyword = codeKeyword.takeIf { it.isNotBlank() },
-            minDigits = 3,
-            maxDigits = 8
-        )
-        pattern
+    val generatedCodePattern = remember(codePrefix, codeSuffix) {
+        if (codePrefix.isNotBlank() && codeSuffix.isNotBlank()) {
+            ParsingRule.generatePatternFromPrefixSuffix(codePrefix, codeSuffix)
+        } else {
+            ""
+        }
     }
     val generatedAddressPattern = remember(addressKeyword) {
         if (addressKeyword.isNotBlank()) {
@@ -397,148 +349,51 @@ fun RuleFormDialog(
                                 }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    // 取件码格式
+                    // 从 [前缀] 到 [后缀]
                     item {
-                        Text("取件码格式", style = MaterialTheme.typography.labelLarge)
-                        ExposedDropdownMenuBox(
-                            expanded = formatExpanded,
-                            onExpandedChange = { formatExpanded = it }
+                        Text("取件码识别范围", style = MaterialTheme.typography.labelLarge)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Text("从", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
                             OutlinedTextField(
-                                value = selectedFormatType.label,
-                                onValueChange = {},
-                                readOnly = true,
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth(),
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = formatExpanded) }
-                            )
-                            ExposedDropdownMenu(
-                                expanded = formatExpanded,
-                                onDismissRequest = { formatExpanded = false }
-                            ) {
-                                PRESET_CODE_FORMATS.forEach { (type, desc) ->
-                                    DropdownMenuItem(
-                                        text = { Text("$type.label · $desc") },
-                                        onClick = {
-                                            selectedFormatType = type
-                                            formatExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    // 取件码关键词
-                    item {
-                        Text("取件码关键词", style = MaterialTheme.typography.labelLarge)
-                        ExposedDropdownMenuBox(
-                            expanded = keywordExpanded,
-                            onExpandedChange = { keywordExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = codeKeyword,
-                                onValueChange = { codeKeyword = it },
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth(),
-                                placeholder = { Text("例如：取件码、验证码") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = keywordExpanded) },
+                                value = codePrefix,
+                                onValueChange = { codePrefix = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("取件码前的文字") },
                                 singleLine = true
                             )
-                            ExposedDropdownMenu(
-                                expanded = keywordExpanded,
-                                onDismissRequest = { keywordExpanded = false }
-                            ) {
-                                PRESET_CODE_KEYWORDS.forEach { keyword ->
-                                    DropdownMenuItem(
-                                        text = { Text(keyword) },
-                                        onClick = {
-                                            codeKeyword = keyword
-                                            keywordExpanded = false
-                                        }
-                                    )
-                                }
-                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("到", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            OutlinedTextField(
+                                value = codeSuffix,
+                                onValueChange = { codeSuffix = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("取件码后的文字") },
+                                singleLine = true
+                            )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    // 数字位数（仅纯数字格式需要）
-                    if (selectedFormatType == CodeFormatType.DIGITS) {
-                        item {
-                            Text("数字位数", style = MaterialTheme.typography.labelLarge)
-                            ExposedDropdownMenuBox(
-                                expanded = digitRangeExpanded,
-                                onExpandedChange = { digitRangeExpanded = it }
-                            ) {
-                                OutlinedTextField(
-                                    value = selectedDigitRange,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    modifier = Modifier
-                                        .menuAnchor()
-                                        .fillMaxWidth(),
-                                    placeholder = { Text("选择数字位数范围") },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = digitRangeExpanded) }
-                                )
-                                ExposedDropdownMenu(
-                                    expanded = digitRangeExpanded,
-                                    onDismissRequest = { digitRangeExpanded = false }
-                                ) {
-                                    PRESET_DIGIT_RANGES.forEach { (label, _) ->
-                                        DropdownMenuItem(
-                                            text = { Text(label) },
-                                            onClick = {
-                                                selectedDigitRange = label
-                                                digitRangeExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     // 地址关键词（可选）
                     item {
                         Text("地址关键词（可选）", style = MaterialTheme.typography.labelLarge)
-                        ExposedDropdownMenuBox(
-                            expanded = addressExpanded,
-                            onExpandedChange = { addressExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = addressKeyword,
-                                onValueChange = { addressKeyword = it },
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth(),
-                                placeholder = { Text("例如：到达、请到") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = addressExpanded) },
-                                singleLine = true
-                            )
-                            ExposedDropdownMenu(
-                                expanded = addressExpanded,
-                                onDismissRequest = { addressExpanded = false }
-                            ) {
-                                PRESET_ADDRESS_KEYWORDS.forEach { keyword ->
-                                    DropdownMenuItem(
-                                        text = { Text(keyword) },
-                                        onClick = {
-                                            addressKeyword = keyword
-                                            addressExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = addressKeyword,
+                            onValueChange = { addressKeyword = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("例如：到达、请到") },
+                            singleLine = true
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     // 短信示例（可选）
@@ -552,38 +407,27 @@ fun RuleFormDialog(
                             minLines = 2,
                             maxLines = 4
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    // 描述（可选）
-                    item {
-                        Text("描述（可选）", style = MaterialTheme.typography.labelLarge)
-                        OutlinedTextField(
-                            value = description,
-                            onValueChange = { description = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("规则描述") },
-                            singleLine = true
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                     }
 
                     // 生成的正则预览
                     item {
-                        Text("生成的规则（自动）", style = MaterialTheme.typography.labelMedium)
-                        Text(
-                            text = "取件码: $generatedCodePattern",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        generatedAddressPattern?.let { addr ->
+                        if (generatedCodePattern.isNotEmpty()) {
+                            Text("生成的规则（自动）", style = MaterialTheme.typography.labelMedium)
                             Text(
-                                text = "地址: $addr",
+                                text = "取件码: $generatedCodePattern",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.secondary
+                                color = MaterialTheme.colorScheme.primary
                             )
+                            generatedAddressPattern?.let { addr ->
+                                Text(
+                                    text = "地址: $addr",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
                     }
                 }
 
@@ -599,20 +443,21 @@ fun RuleFormDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            if (companyName.isNotBlank()) {
-                                val (min, max) = parseDigitRange(selectedDigitRange)
+                            if (companyName.isNotBlank() && codePrefix.isNotBlank() && codeSuffix.isNotBlank()) {
+                                val pattern = ParsingRule.generatePatternFromPrefixSuffix(codePrefix, codeSuffix)
+                                val addrPattern = if (addressKeyword.isNotBlank()) {
+                                    ParsingRule.generateAddressPattern(addressKeyword)
+                                } else null
                                 val rule = ParsingRule(
                                     id = initialRule?.id
                                         ?: ParsingRule.generateId(companyName),
                                     companyName = companyName,
-                                    codeKeyword = codeKeyword.takeIf { it.isNotBlank() },
-                                    codeFormat = selectedFormatType.name,
-                                    codeMinDigits = min,
-                                    codeMaxDigits = max,
+                                    codePrefix = codePrefix,
+                                    codeSuffix = codeSuffix,
                                     addressKeyword = addressKeyword.takeIf { it.isNotBlank() },
                                     smsExample = smsExample,
-                                    parcelCodePattern = generatedCodePattern,
-                                    addressPattern = generatedAddressPattern,
+                                    parcelCodePattern = pattern,
+                                    addressPattern = addrPattern,
                                     isCustom = true,
                                     isEnabled = initialRule?.isEnabled ?: true,
                                     description = description,
@@ -623,26 +468,13 @@ fun RuleFormDialog(
                                 onSave(rule)
                             }
                         },
-                        enabled = companyName.isNotBlank()
+                        enabled = companyName.isNotBlank() && codePrefix.isNotBlank() && codeSuffix.isNotBlank()
                     ) {
                         Text(saveButtonText)
                     }
                 }
             }
         }
-    }
-}
-
-/**
- * 解析 "3-6位" 格式的字符串为 (min, max) 元组
- */
-private fun parseDigitRange(range: String): Pair<Int, Int> {
-    val regex = Regex("""(\d+)-(\d+)位""")
-    val match = regex.find(range)
-    return if (match != null) {
-        match.groupValues[1].toInt() to match.groupValues[2].toInt()
-    } else {
-        3 to 8
     }
 }
 
@@ -699,9 +531,9 @@ fun RuleItem(
                     else
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
 
-                    if (rule.codeKeyword != null) {
+                    if (rule.codePrefix != null) {
                         Text(
-                            text = "${rule.codeKeyword} · ${rule.codeMinDigits}-${rule.codeMaxDigits}位数字",
+                            text = "从[${rule.codePrefix}]到[${rule.codeSuffix}]",
                             style = MaterialTheme.typography.bodyMedium,
                             color = textColor
                         )
