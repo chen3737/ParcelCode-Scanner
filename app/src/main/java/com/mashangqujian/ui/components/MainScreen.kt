@@ -60,8 +60,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -99,6 +97,7 @@ import com.mashangqujian.data.model.Parcel
 import com.mashangqujian.ui.MainViewModel
 import com.mashangqujian.ui.theme.MashangqujianTheme
 import kotlin.math.abs
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 // 导航项
@@ -124,7 +123,6 @@ enum class SwipeAction {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
-    val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     var currentRoute by remember { mutableStateOf(NavItem.Home.route) }
@@ -133,14 +131,14 @@ fun MainScreen(viewModel: MainViewModel) {
     val showRuleManagement by remember { viewModel.showRuleManagement }
     val errorMessage = viewModel.errorMessage.value
 
+    // iOS 风格 Toast
+    var toastMessage by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(errorMessage) {
         errorMessage?.let { message ->
-            scope.launch {
-                snackbarHostState.showSnackbar(message)
-                viewModel.clearError()
-                if (message.contains("成功添加取件码")) {
-                    viewModel.closeManualInputDialog()
-                }
+            toastMessage = message
+            viewModel.clearError()
+            if (message.contains("成功添加取件码")) {
+                viewModel.closeManualInputDialog()
             }
         }
     }
@@ -202,7 +200,6 @@ fun MainScreen(viewModel: MainViewModel) {
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             IOSBottomNavigationBar(
                 items = navItems,
@@ -282,6 +279,11 @@ fun MainScreen(viewModel: MainViewModel) {
             )
         }
     }
+
+    // iOS 风格 Toast 提示
+    toastMessage?.let { msg ->
+        IOSSnackbarToast(message = msg, onDismiss = { toastMessage = null })
+    }
 }
 
 // ==================== 小米通知类短信权限引导对话框 ====================
@@ -351,6 +353,51 @@ fun IOSLiquidIconButton(
             modifier = Modifier.size(22.dp),
             tint = MaterialTheme.colorScheme.primary
         )
+    }
+}
+
+// ==================== iOS 风格 Toast 提示 ====================
+
+@Composable
+fun IOSSnackbarToast(message: String, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(message) {
+        scope.launch {
+            delay(1500)
+            onDismiss()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp)
+            .padding(bottom = 100.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        AnimatedVisibility(
+            visible = true,
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(200))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF1C1C1E).copy(alpha = 0.85f))
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = message,
+                    fontSize = 14.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
     }
 }
 

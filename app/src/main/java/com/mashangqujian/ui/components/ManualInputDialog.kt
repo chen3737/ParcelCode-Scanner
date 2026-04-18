@@ -9,11 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.selection.LocalTextSelectionColors
-import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Sms
@@ -31,9 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -50,20 +44,13 @@ fun ManualInputDialog(
 ) {
     val manualSMSText by remember { viewModel.manualSMSText }
     val clipboardManager = LocalClipboardManager.current
-    val context = LocalContext.current
-    
+
     var textValue by remember { mutableStateOf(TextFieldValue(manualSMSText)) }
     var isParsing by remember { mutableStateOf(false) }
     var showSuccessMessage by remember { mutableStateOf(false) }
     var showErrorMessage by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-    
-    // 自定义文本选择颜色（使用主色调）
-    val customTextSelectionColors = TextSelectionColors(
-        handleColor = MaterialTheme.colorScheme.primary,
-        backgroundColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-    )
-    
+
     // 自动粘贴剪贴板内容（仅当对话框首次打开时）
     LaunchedEffect(Unit) {
         clipboardManager.getText()?.let { annotatedString ->
@@ -89,11 +76,7 @@ fun ManualInputDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Add, null, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("手动输入短信")
-            }
+            Text("手动输入短信")
         },
         text = {
             Column(
@@ -106,7 +89,7 @@ fun ManualInputDialog(
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                 )
-                
+
                 // 粘贴按钮
                 Button(
                     onClick = {
@@ -121,11 +104,11 @@ fun ManualInputDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("粘贴剪贴板内容")
                 }
-                
+
                 // 输入框
                 OutlinedTextField(
                     value = textValue,
-                    onValueChange = { 
+                    onValueChange = {
                         textValue = it
                         viewModel.manualSMSText.value = it.text
                     },
@@ -137,21 +120,7 @@ fun ManualInputDialog(
                     enabled = !isParsing,
                     isError = showErrorMessage
                 )
-                
-                // 示例
-                Text(
-                    text = "支持格式：",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                )
-                Text(
-                    text = "• 【顺丰】取件码：123456\n• 【京东】凭码取件 654321\n• 您的包裹已到达，取件码789012",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    lineHeight = 14.sp
-                )
-                
+
                 // 错误信息
                 if (showErrorMessage) {
                     Row(
@@ -183,8 +152,6 @@ fun ManualInputDialog(
                     onClick = onDismiss,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Close, null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text("取消")
                 }
                 Button(
@@ -196,13 +163,13 @@ fun ManualInputDialog(
                             showSuccessMessage = false
                             return@Button
                         }
-                        
+
                         isParsing = true
                         showErrorMessage = false
-                        
+
                         // 调用ViewModel的addManually方法，它会处理解析和更新状态
                         viewModel.addManually()
-                        
+
                         // 检查是否解析成功（通过ViewModel的errorMessage状态）
                         // 这里不立即关闭对话框，让MainScreen根据解析结果决定是否关闭
                         isParsing = false

@@ -69,6 +69,9 @@ interface ParcelDao {
     @Query("SELECT * FROM parcels WHERE address LIKE '%' || :address || '%' ORDER BY smsDate DESC")
     fun searchByAddress(address: String): Flow<List<Parcel>>
     
+    @Query("SELECT parcelCode FROM parcels ORDER BY smsDate DESC")
+    fun getAllParcelCodes(): List<String>
+
     @Query("DELETE FROM parcels")
     suspend fun deleteAllParcels()
 }

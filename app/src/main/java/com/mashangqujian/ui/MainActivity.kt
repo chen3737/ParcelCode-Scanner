@@ -1,7 +1,10 @@
 package com.mashangqujian.ui
 
 import android.Manifest
+import android.content.IntentFilter
+import android.os.Build
 import android.os.Bundle
+import android.provider.Telephony
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -13,13 +16,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.mashangqujian.sms.SMSReceiver
 import com.mashangqujian.ui.components.MainScreen
 import com.mashangqujian.ui.theme.MashangqujianTheme
 
 class MainActivity : ComponentActivity() {
-    
-    private lateinit var requestPermissionLauncher: ActivityResultLauncher<String>
-    
+
+    private lateinit var requestPermissionLauncher: ActivityResultLauncher<Array<String>>
+    private var smsReceiver: SMSReceiver? = null
+
     private val viewModel: MainViewModel by viewModels()
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,6 +58,9 @@ class MainActivity : ComponentActivity() {
 
                 // 检查粘贴板内容
                 viewModel.checkClipboard(this)
+
+                // 注册短信接收器
+                registerSMSReceiver()
             } else {
                 Log.e("MainActivity", "组件初始化失败")
                 // 显示错误消息或重试机制
@@ -64,7 +72,36 @@ class MainActivity : ComponentActivity() {
             finish() // 如果启动失败，关闭应用
         }
     }
-    
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // 注销短信接收器
+        smsReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {
+                Log.w("MainActivity", "注销接收器失败: ${e.message}")
+            }
+            smsReceiver = null
+        }
+    }
+
+    /**
+     * 动态注册短信接收器（Android 12+ 需要运行时注册）
+     */
+    private fun registerSMSReceiver() {
+        smsReceiver = SMSReceiver()
+        val filter = IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION).apply {
+            priority = 999
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(smsReceiver, filter, RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(smsReceiver, filter)
+        }
+        Log.d("MainActivity", "短信接收器已注册")
+    }
+
     override fun onResume() {
         super.onResume()
         // 刷新数据
@@ -95,34 +132,41 @@ class MainActivity : ComponentActivity() {
     
     private fun initializePermissionLauncher() {
         requestPermissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            if (isGranted) {
-                Log.d("MainActivity", "短信权限已授予")
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            val readGranted = permissions[Manifest.permission.READ_SMS] == true
+            val receiveGranted = permissions[Manifest.permission.RECEIVE_SMS] == true
+
+            if (readGranted) {
+                Log.d("MainActivity", "短信读取权限已授予")
                 viewModel.onPermissionGranted()
-                // 不再自动扫描短信，改为用户手动触发
-                Toast.makeText(
-                    this,
-                    "短信权限已授予，现在可以手动扫描短信或手动输入短信内容",
-                    Toast.LENGTH_LONG
-                ).show()
+
+                if (receiveGranted) {
+                    Log.d("MainActivity", "短信接收权限已授予，自动识别已启用")
+                } else {
+                    Log.w("MainActivity", "RECEIVE_SMS 权限被拒绝，自动识别可能不可用")
+                    Toast.makeText(
+                        this,
+                        "短信接收权限未授予，自动识别新短信功能可能不可用",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             } else {
-                Log.w("MainActivity", "短信权限被拒绝")
+                Log.w("MainActivity", "短信读取权限被拒绝")
                 viewModel.onPermissionDenied()
-                // 可以显示一个Toast或Snackbar提示用户
-                Toast.makeText(
-                    this,
-                    "短信读取权限被拒绝，部分功能将无法使用",
-                    Toast.LENGTH_LONG
-                ).show()
             }
         }
     }
-    
+
     fun requestSMSPermission() {
         try {
-            Log.d("MainActivity", "请求短信读取权限")
-            requestPermissionLauncher.launch(Manifest.permission.READ_SMS)
+            Log.d("MainActivity", "请求短信权限")
+            // 同时请求 READ_SMS 和 RECEIVE_SMS
+            val permissions = arrayOf(
+                Manifest.permission.READ_SMS,
+                Manifest.permission.RECEIVE_SMS
+            )
+            requestPermissionLauncher.launch(permissions)
         } catch (e: Exception) {
             Log.e("MainActivity", "权限请求失败: ${e.message}", e)
             Toast.makeText(
