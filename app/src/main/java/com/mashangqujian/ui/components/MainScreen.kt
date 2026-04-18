@@ -62,6 +62,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -246,7 +247,75 @@ fun MainScreen(viewModel: MainViewModel) {
                 onDismiss = { viewModel.dismissClipboardDialog() }
             )
         }
+
+        // 小米通知类短信权限引导对话框
+        if (viewModel.showXiaomiSMSPermissionGuide.value) {
+            val context = LocalContext.current
+            XiaomiSMSPermissionGuideDialog(
+                onDismiss = { viewModel.dismissXiaomiSMSPermissionGuide() },
+                onGoToSettings = {
+                    try {
+                        val intent = android.content.Intent(
+                            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            android.net.Uri.parse("package:${context.packageName}")
+                        )
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        // fallback: open settings
+                    }
+                    viewModel.dismissXiaomiSMSPermissionGuide()
+                }
+            )
+        }
     }
+}
+
+// ==================== 小米通知类短信权限引导对话框 ====================
+
+@Composable
+fun XiaomiSMSPermissionGuideDialog(
+    onDismiss: () -> Unit,
+    onGoToSettings: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("无法读取短信") },
+        text = {
+            Column {
+                Text(
+                    text = "检测到小米/Redmi设备，取件码短信被系统归类为「通知类短信」，需要额外授权才能读取。",
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "请按以下路径手动开启权限：",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "设置 → 隐私保护 → 其他权限 → 通知类短信 → 找到「码上取件」→ 允许",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    lineHeight = 16.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onGoToSettings,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("去设置")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("我知道了")
+            }
+        }
+    )
 }
 
 // ==================== iOS 风格底部导航栏 ====================

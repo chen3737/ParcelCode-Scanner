@@ -19,7 +19,7 @@ import com.mashangqujian.sms.SMSReader
 import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
-    
+
     // 状态
     val parcels = mutableStateListOf<Parcel>()
     val uncollectedCount = mutableStateOf(0)
@@ -27,11 +27,11 @@ class MainViewModel : ViewModel() {
     val hasSMSPermission = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
     val selectedParcel = mutableStateOf<Parcel?>(null)
-    
+
     // 手动输入相关状态
     val showAddManuallyDialog = mutableStateOf(false)
     val manualSMSText = mutableStateOf("")
-    
+
     // 规则管理相关状态
     val showRuleManagement = mutableStateOf(false)
     val allRules = mutableStateListOf<ParsingRule>()
@@ -40,16 +40,31 @@ class MainViewModel : ViewModel() {
     val showClipboardDialog = mutableStateOf(false)
     val clipboardContent = mutableStateOf("")
     val clipboardParsedParcel = mutableStateOf<Parcel?>(null)
-    
+
+    // 小米通知类短信权限引导
+    val showXiaomiSMSPermissionGuide = mutableStateOf(false)
+
     // 依赖
     private lateinit var database: AppDatabase
     private lateinit var smsReader: SMSReader
     private lateinit var smsParser: SMSParser
     private lateinit var ruleRepository: RuleRepository
     private var appContext: Context? = null
-    
+
     // 权限回调引用（由Activity提供）
     private var permissionCallback: (() -> Unit)? = null
+
+    /**
+     * 检测是否为小米/Redmi设备
+     */
+    fun isXiaomiDevice(): Boolean {
+        return try {
+            val brand = android.os.Build.BRAND.lowercase()
+            brand == "xiaomi" || brand == "redmi" || brand == "mi"
+        } catch (e: Exception) {
+            false
+        }
+    }
     
     init {
         initializeComponents()
@@ -255,7 +270,12 @@ class MainViewModel : ViewModel() {
                 if (newParcels.isNotEmpty()) {
                     errorMessage.value = "扫描完成，发现${newParcels.size}个取件码"
                 } else {
-                    errorMessage.value = "扫描完成，未发现取件码"
+                    // 小米设备读取不到短信时，引导用户开启通知类短信权限
+                    if (isXiaomiDevice() && smsItems.isEmpty()) {
+                        showXiaomiSMSPermissionGuide.value = true
+                    } else {
+                        errorMessage.value = "扫描完成，未发现取件码"
+                    }
                 }
             } catch (e: Exception) {
                 errorMessage.value = "扫描失败: ${e.message}"
@@ -487,5 +507,12 @@ class MainViewModel : ViewModel() {
      */
     fun dismissClipboardDialog() {
         showClipboardDialog.value = false
+    }
+
+    /**
+     * 取消小米通知类短信权限引导对话框
+     */
+    fun dismissXiaomiSMSPermissionGuide() {
+        showXiaomiSMSPermissionGuide.value = false
     }
 }
