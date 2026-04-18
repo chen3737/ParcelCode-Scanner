@@ -521,10 +521,10 @@ fun HomeScreen(viewModel: MainViewModel) {
         } else if (uncollectedParcels.isEmpty()) {
             EmptyState()
         } else {
-            SwipeableParcelList(
+            GroupedParcelList(
                 parcels = uncollectedParcels,
                 viewModel = viewModel,
-                showCollectedHeader = false
+                swipeAction = SwipeAction.COLLECT
             )
         }
     }
@@ -729,6 +729,56 @@ fun SwipeableParcelList(
     }
 }
 
+// ==================== 按公司分组的包裹列表（首页） ====================
+
+@Composable
+fun GroupedParcelList(
+    parcels: List<Parcel>,
+    viewModel: MainViewModel,
+    swipeAction: SwipeAction = SwipeAction.COLLECT
+) {
+    var showSmsDialog by remember { mutableStateOf<Parcel?>(null) }
+    val clipboard = LocalClipboardManager.current
+
+    // 按公司分组，保持原始顺序（短信时间倒序）
+    val grouped = parcels.groupBy { it.courierCompany }
+    val companyOrder = parcels.distinctBy { it.courierCompany }.map { it.courierCompany }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = rememberLazyListState(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        companyOrder.forEach { company ->
+            val companyParcels = grouped[company] ?: emptyList()
+            item {
+                SectionHeader("$company (${companyParcels.size})")
+            }
+            items(companyParcels, key = { it.id }) { parcel ->
+                SwipeableParcelItem(
+                    parcel = parcel,
+                    onShowSms = { showSmsDialog = parcel },
+                    onMarkAsCollected = { viewModel.markAsCollected(parcel) },
+                    onUncollected = { viewModel.markAsUncollected(parcel) },
+                    onCopyCode = { clipboard.setText(AnnotatedString(parcel.parcelCode)) },
+                    onDelete = { viewModel.deleteParcel(parcel) },
+                    swipeAction = swipeAction
+                )
+            }
+        }
+    }
+
+    // 短信详情对话框
+    showSmsDialog?.let { parcel ->
+        ParcelSmsDialog(
+            parcel = parcel,
+            onDismiss = { showSmsDialog = null },
+            onDelete = { viewModel.deleteParcel(parcel) },
+            onCopyCode = { clipboard.setText(AnnotatedString(parcel.parcelCode)) }
+        )
+    }
+}
+
 // ==================== 可滑动标记已取件的包裹项 ====================
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -898,16 +948,7 @@ fun SwipeableParcelItem(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Text(
-                    text = parcel.address,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                    maxLines = 2
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

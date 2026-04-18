@@ -30,37 +30,95 @@ class SMSParser {
     fun parseSMS(smsContent: String, sender: String, smsDate: Long): ParseResult {
         val normalizedContent = smsContent.trim()
 
-        // 1. 识别快递公司，同时记录匹配规则
+        // 1. 优先使用用户定义的规则识别
         val (company, matchedRule) = detectCourierCompany(normalizedContent)
 
-        // 没有规则匹配，直接返回 null
-        if (company.isEmpty()) {
-            return ParseResult(null, "")
+        // 有规则匹配，按规则解析
+        if (company.isNotEmpty()) {
+            return parseWithRule(normalizedContent, company, matchedRule, sender, smsDate)
         }
 
-        // 2. 提取取件码
-        val parcelCode = extractParcelCode(normalizedContent, company)
+        // 2. 通用回退：用【】识别公司名，用取件码关键词提取
+        return parseUniversal(normalizedContent, sender, smsDate)
+    }
 
-        // 3. 提取地址
-        val address = extractAddress(normalizedContent, company)
-
-        // 如果取件码为空，说明无法解析
+    /**
+     * 使用用户规则解析
+     */
+    private fun parseWithRule(
+        content: String,
+        company: String,
+        matchedRule: String,
+        sender: String,
+        smsDate: Long
+    ): ParseResult {
+        val parcelCode = extractParcelCode(content, company)
         if (parcelCode.isEmpty()) {
             return ParseResult(null, matchedRule)
         }
-
+        val address = extractAddress(content, company)
         return ParseResult(
             parcel = Parcel(
                 parcelCode = parcelCode,
                 address = address.ifEmpty { "未知地址" },
                 courierCompany = company,
-                smsContent = normalizedContent,
+                smsContent = content,
                 smsDate = smsDate,
                 sender = sender,
                 matchedRule = matchedRule
             ),
             matchedRule = matchedRule
         )
+    }
+
+    /**
+     * 通用解析：从【】提取公司名，从"取件码[为]...，"提取取件码
+     */
+    private fun parseUniversal(content: String, sender: String, smsDate: Long): ParseResult {
+        // 从【XX】提取快递公司
+        val companyMatch = Regex("【([^】]+)】").find(content)
+        val company = companyMatch?.groupValues?.get(1)?.trim()
+            ?: "未知快递"
+
+        // 从"取件码[为]...，"或"取件码[为]...。"提取取件码
+        val codePattern = Regex("取件码(?:为|：|:|\\s)*([\\u4e00-\\u9fa5a-zA-Z0-9\\-/]{2,15})[，。.!！\\s]")
+        val codeMatch = codePattern.find(content)
+        val parcelCode = codeMatch?.groupValues?.get(1)?.trim()
+
+        if (parcelCode.isNullOrEmpty()) {
+            return ParseResult(null, "")
+        }
+
+        // 尝试提取地址：从"地址"或"到达/菜鸟驿站/快递柜"等关键词
+        val address = extractAddressUniversal(content)
+
+        return ParseResult(
+            parcel = Parcel(
+                parcelCode = parcelCode,
+                address = address.ifEmpty { "未知地址" },
+                courierCompany = company,
+                smsContent = content,
+                smsDate = smsDate,
+                sender = sender,
+                matchedRule = "通用·$company·【】取件码"
+            ),
+            matchedRule = "通用·$company·【】取件码"
+        )
+    }
+
+    /**
+     * 通用地址提取
+     */
+    private fun extractAddressUniversal(content: String): String {
+        // 尝试"地址：XXX"
+        Regex("地址[：:]\\s*([^，,。.!！\n]+)").find(content)?.let {
+            return it.groupValues[1].trim()
+        }
+        // 尝试"到达XXX"
+        Regex("到达([^，,。.!！\n]{3,30})").find(content)?.let {
+            return it.groupValues[1].trim()
+        }
+        return ""
     }
 
     /**
