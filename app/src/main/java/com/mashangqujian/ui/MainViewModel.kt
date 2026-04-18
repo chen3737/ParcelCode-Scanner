@@ -17,6 +17,7 @@ import com.mashangqujian.data.model.ParsingRule
 import com.mashangqujian.data.repository.RuleRepository
 import com.mashangqujian.sms.SMSParser
 import com.mashangqujian.sms.SMSReader
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class MainViewModel : ViewModel() {
@@ -100,8 +101,18 @@ class MainViewModel : ViewModel() {
     
     fun initializeSMSReader(context: Context) {
         smsReader = SMSReader(context.contentResolver)
-        // 重新初始化解析器以包含规则仓库
-        smsParser = SMSParser(ruleRepository)
+        // 初始化预设规则（如果数据库为空则自动添加）
+        initDefaultRules()
+    }
+
+    private fun initDefaultRules() {
+        viewModelScope.launch {
+            try {
+                ruleRepository.initializeDefaultRules()
+            } catch (e: Exception) {
+                // 忽略错误
+            }
+        }
     }
     
     /**
@@ -110,6 +121,7 @@ class MainViewModel : ViewModel() {
     fun initializeAllComponents(context: Context) {
         initializeDatabase(context)
         initializeSMSReader(context)
+        loadAllRules()
     }
     
     /**
@@ -149,6 +161,7 @@ class MainViewModel : ViewModel() {
                 ruleRepository.getAllRules().collect { rules ->
                     allRules.clear()
                     allRules.addAll(rules.sortedBy { it.companyName })
+                    smsParser.updateRules(rules)
                     isLoading.value = false
                 }
             } catch (e: Exception) {

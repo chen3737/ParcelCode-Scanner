@@ -138,10 +138,30 @@ class RuleRepository(context: Context) {
     suspend fun getEnabledRuleCount(): Int = ruleDao.getEnabledRuleCount()
 
     /**
-     * 初始化预设规则（已取消，不再自动添加预设规则）
+     * 初始化预设规则
      */
     suspend fun initializeDefaultRules() {
-        // 不再自动添加预设规则，用户需手动添加自定义规则
+        // 如果已有规则则不添加
+        if (getRuleCount() > 0) return
+
+        // 预设：兔喜生活
+        insert(
+            ParsingRule(
+                id = "preset_tuxi",
+                companyName = "兔喜生活",
+                codePrefix = "取件码为",
+                codeSuffix = "，",
+                addressKeyword = "到达",
+                isCustom = true,
+                isEnabled = true,
+                parcelCodePattern = Regex.escape("取件码为") + "\\s*([\\u4e00-\\u9fa5a-zA-Z0-9\\-]+?)\\s*，",
+                addressPattern = ParsingRule.generateAddressPattern("到达"),
+                smsExample = "【兔喜生活】您有包裹已到达佳和园东门水果店店，取件码为6-5-2502，地址:清江南路5号小区东门水果店",
+                description = "预设：兔喜生活取件码规则",
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+        )
     }
 
 }

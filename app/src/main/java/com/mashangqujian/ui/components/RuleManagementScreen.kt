@@ -103,12 +103,6 @@ fun RuleManagementScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.loadAllRules() },
-                        enabled = !isLoading
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
-                    }
-                    IconButton(
                         onClick = { showAddDialog = true }
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "添加规则")
@@ -142,12 +136,6 @@ fun RuleManagementScreen(
                     Text("暂无规则", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("点击右上角 + 按钮添加规则", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("添加规则")
-                    }
                 }
             } else {
                 LazyColumn(

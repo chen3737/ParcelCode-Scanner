@@ -186,7 +186,7 @@ fun MainScreen(viewModel: MainViewModel) {
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "添加",
+                                text = "添加包裹",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.White
