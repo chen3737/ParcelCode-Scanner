@@ -1,10 +1,7 @@
 package com.mashangqujian.ui
 
 import android.Manifest
-import android.content.IntentFilter
-import android.os.Build
 import android.os.Bundle
-import android.provider.Telephony
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -16,14 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.mashangqujian.sms.SMSReceiver
+import com.mashangqujian.sms.SMSMonitor
 import com.mashangqujian.ui.components.MainScreen
 import com.mashangqujian.ui.theme.MashangqujianTheme
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var requestPermissionLauncher: ActivityResultLauncher<Array<String>>
-    private var smsReceiver: SMSReceiver? = null
+    private var smsMonitor: SMSMonitor? = null
 
     private val viewModel: MainViewModel by viewModels()
     
@@ -59,8 +56,8 @@ class MainActivity : ComponentActivity() {
                 // 检查粘贴板内容
                 viewModel.checkClipboard(this)
 
-                // 注册短信接收器
-                registerSMSReceiver()
+                // 注册短信数据库监听器
+                registerSMSMonitor()
             } else {
                 Log.e("MainActivity", "组件初始化失败")
                 // 显示错误消息或重试机制
@@ -75,31 +72,31 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // 注销短信接收器
-        smsReceiver?.let {
+        // 注销短信监听器
+        smsMonitor?.let {
             try {
-                unregisterReceiver(it)
+                contentResolver.unregisterContentObserver(it)
             } catch (e: Exception) {
-                Log.w("MainActivity", "注销接收器失败: ${e.message}")
+                Log.w("MainActivity", "注销监听器失败: ${e.message}")
             }
-            smsReceiver = null
+            smsMonitor = null
         }
     }
 
     /**
-     * 动态注册短信接收器（Android 12+ 需要运行时注册）
+     * 注册短信数据库监听器（ContentObserver，兼容鸿蒙）
      */
-    private fun registerSMSReceiver() {
-        smsReceiver = SMSReceiver()
-        val filter = IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION).apply {
-            priority = 999
+    private fun registerSMSMonitor() {
+        smsMonitor = SMSMonitor(this) {
+            // 新取件码自动识别后，刷新 UI
+            viewModel.loadParcels()
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(smsReceiver, filter, RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(smsReceiver, filter)
-        }
-        Log.d("MainActivity", "短信接收器已注册")
+        contentResolver.registerContentObserver(
+            android.provider.Telephony.Sms.CONTENT_URI,
+            true,
+            smsMonitor!!
+        )
+        Log.d("MainActivity", "短信监听器已注册（ContentObserver）")
     }
 
     override fun onResume() {
