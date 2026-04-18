@@ -101,7 +101,7 @@ class SMSReader(private val contentResolver: ContentResolver) {
      */
     fun parseToParcels(smsItems: List<SMSItem>, parser: SMSParser): List<Parcel> {
         return smsItems.mapNotNull { sms ->
-            parser.parseSMS(sms.content, sms.sender, sms.date)
+            parser.parseSMS(sms.content, sms.sender, sms.date).parcel
         }
     }
     

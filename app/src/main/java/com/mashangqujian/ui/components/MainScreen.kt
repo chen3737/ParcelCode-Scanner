@@ -890,6 +890,16 @@ fun ParcelSmsDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // 识别规则
+                if (parcel.matchedRule.isNotEmpty()) {
+                    Text(
+                        text = "识别规则：${parcel.matchedRule}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+
                 // 短信内容
                 Text(
                     text = "短信内容：",

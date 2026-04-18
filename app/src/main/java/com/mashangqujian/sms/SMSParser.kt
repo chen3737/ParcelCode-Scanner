@@ -49,35 +49,44 @@ class SMSParser(private val ruleRepository: RuleRepository? = null) {
      * @param smsContent 短信内容
      * @param sender 发件人号码
      * @param smsDate 短信接收时间
-     * @return 解析出的取件记录，如果无法解析则返回null
+     * @return 解析结果，包含 Parcel 和匹配的规则名称
      */
-    fun parseSMS(smsContent: String, sender: String, smsDate: Long): Parcel? {
+    data class ParseResult(
+        val parcel: Parcel?,
+        val matchedRule: String
+    )
+
+    fun parseSMS(smsContent: String, sender: String, smsDate: Long): ParseResult {
         val normalizedContent = smsContent.trim()
-        
+
         // 获取启用的规则
         val enabledRules = loadEnabledRules()
-        
-        // 1. 识别快递公司
-        val company = detectCourierCompany(normalizedContent, enabledRules)
-        
+
+        // 1. 识别快递公司，同时记录匹配规则
+        val (company, matchedRule) = detectCourierCompany(normalizedContent, enabledRules)
+
         // 2. 提取取件码
         val parcelCode = extractParcelCode(normalizedContent, company, enabledRules)
-        
+
         // 3. 提取地址
         val address = extractAddress(normalizedContent, company, enabledRules)
-        
+
         // 如果取件码为空，说明无法解析
         if (parcelCode.isEmpty()) {
-            return null
+            return ParseResult(null, matchedRule)
         }
-        
-        return Parcel(
-            parcelCode = parcelCode,
-            address = address.ifEmpty { "未知地址" },
-            courierCompany = company.ifEmpty { "未知快递" },
-            smsContent = normalizedContent,
-            smsDate = smsDate,
-            sender = sender
+
+        return ParseResult(
+            parcel = Parcel(
+                parcelCode = parcelCode,
+                address = address.ifEmpty { "未知地址" },
+                courierCompany = company.ifEmpty { "未知快递" },
+                smsContent = normalizedContent,
+                smsDate = smsDate,
+                sender = sender,
+                matchedRule = matchedRule
+            ),
+            matchedRule = matchedRule
         )
     }
     
@@ -101,8 +110,9 @@ class SMSParser(private val ruleRepository: RuleRepository? = null) {
     
     /**
      * 检测快递公司
+     * @return Pair(companyName, matchedRuleName)
      */
-    private fun detectCourierCompany(content: String, rules: List<ParsingRule>): String {
+    private fun detectCourierCompany(content: String, rules: List<ParsingRule>): Pair<String, String> {
         // 先尝试从持久化规则中匹配
         for (rule in rules) {
             if (rule.isEnabled) {
@@ -113,15 +123,16 @@ class SMSParser(private val ruleRepository: RuleRepository? = null) {
                         runBlocking {
                             ruleRepository?.incrementMatchCount(rule.id)
                         }
-                        return rule.companyName
+                        val ruleName = buildRuleName(rule)
+                        return rule.companyName to ruleName
                     }
                 } catch (e: Exception) {
                     // 正则表达式可能有误，跳过此规则
                 }
             }
         }
-        
-        return ""
+
+        return "" to "通用规则"
     }
     
     /**
@@ -287,6 +298,22 @@ class SMSParser(private val ruleRepository: RuleRepository? = null) {
             RuleTestResult(parcelCodeMatch, addressMatch, null)
         } catch (e: Exception) {
             RuleTestResult(null, null, "正则表达式错误: ${e.message}")
+        }
+    }
+
+    private fun buildRuleName(rule: ParsingRule): String {
+        val typeLabel = if (rule.isCustom) "自定义" else "预设"
+        val detail = if (!rule.codePrefix.isNullOrBlank() && !rule.codeSuffix.isNullOrBlank()) {
+            "从[${rule.codePrefix}]到[${rule.codeSuffix}]"
+        } else if (!rule.codeKeyword.isNullOrBlank()) {
+            "关键词: ${rule.codeKeyword}"
+        } else {
+            ""
+        }
+        return if (detail.isNotEmpty()) {
+            "$typeLabel·${rule.companyName}·$detail"
+        } else {
+            "$typeLabel·${rule.companyName}"
         }
     }
 }

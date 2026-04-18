@@ -29,7 +29,10 @@ data class Parcel(
     val createdAt: Long = System.currentTimeMillis(),
     val isCollected: Boolean = false,
     val notes: String = "",
-    val sender: String = ""
+    val sender: String = "",
+
+    @androidx.room.ColumnInfo(name = "matched_rule")
+    val matchedRule: String = ""
 ) {
     fun toDisplayText(): String {
         return "$courierCompany - $parcelCode\n$address"

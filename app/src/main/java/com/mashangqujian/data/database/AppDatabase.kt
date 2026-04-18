@@ -53,9 +53,16 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+// 从版本5升级到版本6的迁移：parcels 表新增 matched_rule 字段
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE parcels ADD COLUMN matched_rule TEXT NOT NULL DEFAULT ''")
+    }
+}
+
 @Database(
     entities = [Parcel::class, ParsingRule::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -74,7 +81,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mashangqujian_db"
                 )
-                .addMigrations(MIGRATION_2_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_2_4, MIGRATION_4_5, MIGRATION_5_6)
                 .fallbackToDestructiveMigration()
                 .build()
 

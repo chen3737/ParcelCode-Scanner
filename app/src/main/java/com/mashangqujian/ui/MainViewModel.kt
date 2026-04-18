@@ -293,18 +293,18 @@ class MainViewModel : ViewModel() {
                 
                 // 读取最新的一条短信
                 val latestSMS = smsReader.readLatestSMS()
-                
+
                 if (latestSMS != null) {
-                    val parcel = smsParser.parseSMS(
+                    val result = smsParser.parseSMS(
                         latestSMS.content,
                         latestSMS.sender,
                         latestSMS.date
                     )
-                    
-                    if (parcel != null) {
-                        database.parcelDao().insert(parcel)
+
+                    if (result.parcel != null) {
+                        database.parcelDao().insert(result.parcel)
                         loadParcels()
-                        errorMessage.value = "成功添加取件码: ${parcel.parcelCode}"
+                        errorMessage.value = "成功添加取件码: ${result.parcel.parcelCode}"
                     } else {
                         errorMessage.value = "最新短信不包含取件码"
                     }
@@ -324,13 +324,13 @@ class MainViewModel : ViewModel() {
             try {
                 isLoading.value = true
                 errorMessage.value = null
-                
-                val parcel = smsParser.parseSMS(text, "手动输入", System.currentTimeMillis())
-                
-                if (parcel != null) {
-                    database.parcelDao().insert(parcel)
+
+                val result = smsParser.parseSMS(text, "手动输入", System.currentTimeMillis())
+
+                if (result.parcel != null) {
+                    database.parcelDao().insert(result.parcel)
                     loadParcels()
-                    errorMessage.value = "成功添加取件码: ${parcel.parcelCode}"
+                    errorMessage.value = "成功添加取件码: ${result.parcel.parcelCode}"
                 } else {
                     errorMessage.value = "文本不包含有效的取件码"
                 }
@@ -474,10 +474,10 @@ class MainViewModel : ViewModel() {
             if (text.isEmpty()) return
 
             // 尝试解析粘贴板内容
-            val parcel = smsParser.parseSMS(text, "粘贴板", System.currentTimeMillis())
-            if (parcel != null) {
+            val result = smsParser.parseSMS(text, "粘贴板", System.currentTimeMillis())
+            if (result.parcel != null) {
                 clipboardContent.value = text
-                clipboardParsedParcel.value = parcel
+                clipboardParsedParcel.value = result.parcel
                 showClipboardDialog.value = true
             }
         } catch (e: Exception) {
