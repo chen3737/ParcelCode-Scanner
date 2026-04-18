@@ -1,5 +1,6 @@
 package com.mashangqujian.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -41,7 +42,6 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
@@ -115,6 +115,12 @@ sealed class NavItem(
 
 val navItems = listOf(NavItem.Home, NavItem.History, NavItem.Settings)
 
+// 滑动操作模式
+enum class SwipeAction {
+    COLLECT,  // 左滑标记为已取件（首页）
+    DELETE    // 左滑删除（历史页）
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
@@ -162,42 +168,17 @@ fun MainScreen(viewModel: MainViewModel) {
                     actionIconContentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 actions = {
-                    // 扫描按钮
-                    Button(
-                        onClick = { viewModel.scanSMS() },
-                        modifier = Modifier.padding(end = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Search, null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("扫描", fontSize = 14.sp)
-                    }
+                    // 手动添加按钮 - iOS 液态风格
+                    IOSLiquidIconButton(
+                        icon = Icons.Default.Add,
+                        onClick = { viewModel.openManualInputDialog() }
+                    )
 
-                    var showMenu by remember { mutableStateOf(false) }
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, "更多")
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("扫描最新短信") },
-                                onClick = { viewModel.scanLatestSMS(); showMenu = false },
-                                leadingIcon = { Icon(Icons.Default.Search, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("手动输入取件码") },
-                                onClick = { viewModel.openManualInputDialog(); showMenu = false },
-                                leadingIcon = { Icon(Icons.Default.Add, null) }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("规则管理") },
-                                onClick = { viewModel.openRuleManagement(); showMenu = false },
-                                leadingIcon = { Icon(Icons.Default.Rule, null) }
-                            )
-                        }
-                    }
+                    // 扫描按钮 - iOS 液态风格，只显示图标
+                    IOSLiquidIconButton(
+                        icon = Icons.Default.Search,
+                        onClick = { viewModel.scanSMS() }
+                    )
                 }
             )
         },
@@ -233,6 +214,7 @@ fun MainScreen(viewModel: MainViewModel) {
 
     // 规则管理界面
     if (showRuleManagement) {
+        BackHandler { viewModel.closeRuleManagement() }
         RuleManagementScreen(
             viewModel = viewModel,
             onBack = { viewModel.closeRuleManagement() }
@@ -241,6 +223,7 @@ fun MainScreen(viewModel: MainViewModel) {
 
     // 删除历史界面
     if (viewModel.showDeleteHistoryScreen.value) {
+        BackHandler { viewModel.closeDeleteHistory() }
         DeleteHistoryScreen(
             viewModel = viewModel,
             onBack = { viewModel.closeDeleteHistory() }
@@ -327,6 +310,28 @@ fun XiaomiSMSPermissionGuideDialog(
             }
         }
     )
+}
+
+// ==================== iOS 液态风格图标按钮 ====================
+
+@Composable
+fun IOSLiquidIconButton(
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+    }
 }
 
 // ==================== iOS 风格底部导航栏 ====================
@@ -463,7 +468,11 @@ fun HomeScreen(viewModel: MainViewModel) {
 @Composable
 fun HistoryScreen(viewModel: MainViewModel) {
     val collectedParcels by remember(viewModel.parcels) {
-        derivedStateOf { viewModel.parcels.filter { it.isCollected }.sortedByDescending { it.smsDate } }
+        derivedStateOf {
+            viewModel.parcels
+                .filter { it.isCollected }
+                .sortedByDescending { it.collectedAt ?: it.smsDate }
+        }
     }
 
     if (viewModel.isLoading.value) {
@@ -514,7 +523,8 @@ fun HistoryScreen(viewModel: MainViewModel) {
         SwipeableParcelList(
             parcels = collectedParcels,
             viewModel = viewModel,
-            showCollectedHeader = true
+            showCollectedHeader = true,
+            swipeAction = SwipeAction.DELETE
         )
     }
 }
@@ -612,7 +622,8 @@ fun UncollectedQuickAction(count: Int, onMarkAllCollected: () -> Unit) {
 fun SwipeableParcelList(
     parcels: List<Parcel>,
     viewModel: MainViewModel,
-    showCollectedHeader: Boolean
+    showCollectedHeader: Boolean,
+    swipeAction: SwipeAction = SwipeAction.COLLECT
 ) {
     var showSmsDialog by remember { mutableStateOf<Parcel?>(null) }
     val clipboard = LocalClipboardManager.current
@@ -634,7 +645,8 @@ fun SwipeableParcelList(
                 onMarkAsCollected = { viewModel.markAsCollected(parcel) },
                 onUncollected = { viewModel.markAsUncollected(parcel) },
                 onCopyCode = { clipboard.setText(AnnotatedString(parcel.parcelCode)) },
-                onDelete = { viewModel.deleteParcel(parcel) }
+                onDelete = { viewModel.deleteParcel(parcel) },
+                swipeAction = swipeAction
             )
         }
     }
@@ -657,10 +669,11 @@ fun SwipeableParcelList(
 fun SwipeableParcelItem(
     parcel: Parcel,
     onShowSms: () -> Unit,
-    onMarkAsCollected: () -> Unit,
+    onMarkAsCollected: () -> Unit = {},
     onUncollected: () -> Unit,
     onCopyCode: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    swipeAction: SwipeAction = SwipeAction.COLLECT
 ) {
     val density = LocalDensity.current
     val swipeThreshold = with(density) { 100.dp.toPx() }
@@ -674,15 +687,17 @@ fun SwipeableParcelItem(
         // 底部滑动揭示块 — 与卡片同高度
         if (offsetX < -30f) {
             val revealAlpha = ((-offsetX - 30f) / (swipeThreshold - 30f)).coerceIn(0f, 1f)
-            val revealText = if (-offsetX >= swipeThreshold) "已取件" else ""
+            val revealText = if (-offsetX >= swipeThreshold) {
+                if (swipeAction == SwipeAction.COLLECT) "已取件" else "删除"
+            } else ""
+            val revealColor = if (swipeAction == SwipeAction.COLLECT)
+                Color(0xFF34C759) else Color(0xFFFF3B30)
             Box(
                 modifier = Modifier
                     .matchParentSize()
                     .padding(horizontal = 16.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(
-                        Color(0xFF34C759).copy(alpha = revealAlpha * 0.9f)
-                    ),
+                    .background(revealColor.copy(alpha = revealAlpha * 0.9f)),
                 contentAlignment = Alignment.CenterEnd
             ) {
                 if (revealText.isNotEmpty()) {
@@ -691,8 +706,8 @@ fun SwipeableParcelItem(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "已取件",
+                            if (swipeAction == SwipeAction.COLLECT) Icons.Default.CheckCircle else Icons.Default.Delete,
+                            contentDescription = revealText,
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
@@ -720,7 +735,11 @@ fun SwipeableParcelItem(
                         onDragEnd = {
                             isSwiping = false
                             if (offsetX < -swipeThreshold) {
-                                onMarkAsCollected()
+                                if (swipeAction == SwipeAction.COLLECT) {
+                                    onMarkAsCollected()
+                                } else {
+                                    onDelete()
+                                }
                             }
                             offsetX = 0f
                         },
@@ -1360,7 +1379,7 @@ fun EmptyState() {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Sms,
+                imageVector = Icons.Default.LocalShipping,
                 contentDescription = null,
                 modifier = Modifier.size(40.dp),
                 tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
@@ -1368,13 +1387,13 @@ fun EmptyState() {
         }
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = "还没有取件记录",
+            text = "没有待取件快递",
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "从顶部菜单扫描短信，或手动输入取件码",
+            text = "扫描短信或手动输入取件码",
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
         )

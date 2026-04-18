@@ -350,7 +350,7 @@ class MainViewModel : ViewModel() {
     fun markAsCollected(parcel: Parcel) {
         viewModelScope.launch {
             try {
-                database.parcelDao().updateCollectionStatus(parcel.id, true)
+                database.parcelDao().updateCollectionStatusWithTime(parcel.id, true, System.currentTimeMillis())
                 loadParcels()
                 errorMessage.value = "已标记为已取件"
             } catch (e: Exception) {
@@ -358,7 +358,7 @@ class MainViewModel : ViewModel() {
             }
         }
     }
-    
+
     fun markAsUncollected(parcel: Parcel) {
         viewModelScope.launch {
             try {

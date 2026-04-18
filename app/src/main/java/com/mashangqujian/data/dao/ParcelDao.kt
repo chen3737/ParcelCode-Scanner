@@ -53,6 +53,9 @@ interface ParcelDao {
     
     @Query("UPDATE parcels SET isCollected = :isCollected WHERE id = :id")
     suspend fun updateCollectionStatus(id: Int, isCollected: Boolean)
+
+    @Query("UPDATE parcels SET isCollected = :isCollected, collected_at = :collectedAt WHERE id = :id")
+    suspend fun updateCollectionStatusWithTime(id: Int, isCollected: Boolean, collectedAt: Long?)
     
     @Query("UPDATE parcels SET notes = :notes WHERE id = :id")
     suspend fun updateNotes(id: Int, notes: String)

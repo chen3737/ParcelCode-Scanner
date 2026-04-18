@@ -32,7 +32,10 @@ data class Parcel(
     val sender: String = "",
 
     @androidx.room.ColumnInfo(name = "matched_rule")
-    val matchedRule: String = ""
+    val matchedRule: String = "",
+
+    @androidx.room.ColumnInfo(name = "collected_at")
+    val collectedAt: Long? = null
 ) {
     fun toDisplayText(): String {
         return "$courierCompany - $parcelCode\n$address"

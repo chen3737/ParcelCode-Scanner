@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
@@ -347,11 +346,10 @@ fun SettingsActionRow(
         }
 
         // 右侧箭头
-        Icon(
-            imageVector = androidx.compose.material.icons.Icons.Default.CheckCircle,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+        Text(
+            text = "›",
+            fontSize = 20.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
         )
     }
 }
