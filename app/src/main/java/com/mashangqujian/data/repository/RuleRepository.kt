@@ -145,13 +145,15 @@ class RuleRepository(context: Context) {
         val existing = getRuleById("universal_rule")
         if (existing != null) return
 
-        // 预设：通用规则（使用【】识别公司，取件码关键词识别取件码）
+        // 预设：通用规则（使用边界识别公司名，取件码关键词识别取件码）
         insert(
             ParsingRule(
                 id = "universal_rule",
                 companyName = "通用",
                 codePrefix = "取件码",
                 codeSuffix = "，",
+                companyPrefix = "【",
+                companySuffix = "】",
                 addressKeyword = "到达",
                 isCustom = true,
                 isEnabled = true,

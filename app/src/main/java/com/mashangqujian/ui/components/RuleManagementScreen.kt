@@ -263,6 +263,20 @@ fun RuleFormDialog(
         mutableStateOf(initialRule?.codeSuffix ?: "")
     }
 
+    var companyPrefix by remember {
+        mutableStateOf(initialRule?.companyPrefix ?: "")
+    }
+    var companySuffix by remember {
+        mutableStateOf(initialRule?.companySuffix ?: "")
+    }
+
+    var addressPrefix by remember {
+        mutableStateOf(initialRule?.addressPrefix ?: "")
+    }
+    var addressSuffix by remember {
+        mutableStateOf(initialRule?.addressSuffix ?: "")
+    }
+
     var addressKeyword by remember {
         mutableStateOf(initialRule?.addressKeyword ?: "")
     }
@@ -283,8 +297,17 @@ fun RuleFormDialog(
             ""
         }
     }
-    val generatedAddressPattern = remember(addressKeyword) {
-        if (addressKeyword.isNotBlank()) {
+    val generatedCompanyPattern = remember(companyPrefix, companySuffix) {
+        ParsingRule.generateBoundaryPattern(
+            companyPrefix.takeIf { it.isNotBlank() },
+            companySuffix.takeIf { it.isNotBlank() }
+        )
+    }
+    val generatedAddressPattern = remember(addressPrefix, addressSuffix, addressKeyword) {
+        ParsingRule.generateBoundaryPattern(
+            addressPrefix.takeIf { it.isNotBlank() },
+            addressSuffix.takeIf { it.isNotBlank() }
+        ) ?: if (addressKeyword.isNotBlank()) {
             ParsingRule.generateAddressPattern(addressKeyword)
         } else null
     }
@@ -341,6 +364,39 @@ fun RuleFormDialog(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
+                    // 快递公司识别范围
+                    item {
+                        Text("快递公司名称识别（可选）", style = MaterialTheme.typography.labelLarge)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("留空两边则不识别，留一边则从开头/到末尾识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("从", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            OutlinedTextField(
+                                value = companyPrefix,
+                                onValueChange = { companyPrefix = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("公司名前的文字") },
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("到", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            OutlinedTextField(
+                                value = companySuffix,
+                                onValueChange = { companySuffix = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("公司名后的文字") },
+                                singleLine = true
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     // 从 [前缀] 到 [后缀]
                     item {
                         Text("取件码识别范围", style = MaterialTheme.typography.labelLarge)
@@ -372,14 +428,43 @@ fun RuleFormDialog(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    // 地址关键词（可选）
+                    // 地址识别范围
                     item {
-                        Text("地址关键词（可选）", style = MaterialTheme.typography.labelLarge)
+                        Text("地址识别范围（可选）", style = MaterialTheme.typography.labelLarge)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("留空两边则使用关键词模式，留一边则从开头/到末尾识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("从", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            OutlinedTextField(
+                                value = addressPrefix,
+                                onValueChange = { addressPrefix = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("地址前的文字") },
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("到", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            OutlinedTextField(
+                                value = addressSuffix,
+                                onValueChange = { addressSuffix = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("地址后的文字") },
+                                singleLine = true
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("或关键词模式（可选）", style = MaterialTheme.typography.labelMedium)
                         OutlinedTextField(
                             value = addressKeyword,
                             onValueChange = { addressKeyword = it },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("例如：到达、请到") },
+                            placeholder = { Text("例如：到达、请到（前缀/后缀留空时生效）") },
                             singleLine = true
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -401,6 +486,7 @@ fun RuleFormDialog(
 
                     // 生成的正则预览
                     item {
+                        var hasPreview = false
                         if (generatedCodePattern.isNotEmpty()) {
                             Text("生成的规则（自动）", style = MaterialTheme.typography.labelMedium)
                             Text(
@@ -408,13 +494,27 @@ fun RuleFormDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            generatedAddressPattern?.let { addr ->
-                                Text(
-                                    text = "地址: $addr",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.secondary
-                                )
-                            }
+                            hasPreview = true
+                        }
+                        generatedCompanyPattern?.let { pattern ->
+                            if (!hasPreview) Text("生成的规则（自动）", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                text = "公司名: $pattern",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            hasPreview = true
+                        }
+                        generatedAddressPattern?.let { pattern ->
+                            if (!hasPreview) Text("生成的规则（自动）", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                text = "地址: $pattern",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            hasPreview = true
+                        }
+                        if (hasPreview) {
                             Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
@@ -432,17 +532,32 @@ fun RuleFormDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            if (companyName.isNotBlank() && codePrefix.isNotBlank() && codeSuffix.isNotBlank()) {
-                                val pattern = ParsingRule.generatePatternFromPrefixSuffix(codePrefix, codeSuffix)
-                                val addrPattern = if (addressKeyword.isNotBlank()) {
+                            if (companyName.isNotBlank() && (codePrefix.isNotBlank() || codeSuffix.isNotBlank())) {
+                                val pattern = if (codePrefix.isNotBlank() && codeSuffix.isNotBlank()) {
+                                    ParsingRule.generatePatternFromPrefixSuffix(codePrefix, codeSuffix)
+                                } else {
+                                    ""
+                                }
+                                val companyPattern = ParsingRule.generateBoundaryPattern(
+                                    companyPrefix.takeIf { it.isNotBlank() },
+                                    companySuffix.takeIf { it.isNotBlank() }
+                                )
+                                val addrPattern = ParsingRule.generateBoundaryPattern(
+                                    addressPrefix.takeIf { it.isNotBlank() },
+                                    addressSuffix.takeIf { it.isNotBlank() }
+                                ) ?: if (addressKeyword.isNotBlank()) {
                                     ParsingRule.generateAddressPattern(addressKeyword)
                                 } else null
                                 val rule = ParsingRule(
                                     id = initialRule?.id
                                         ?: ParsingRule.generateId(companyName),
                                     companyName = companyName,
-                                    codePrefix = codePrefix,
-                                    codeSuffix = codeSuffix,
+                                    codePrefix = codePrefix.takeIf { it.isNotBlank() },
+                                    codeSuffix = codeSuffix.takeIf { it.isNotBlank() },
+                                    companyPrefix = companyPrefix.takeIf { it.isNotBlank() },
+                                    companySuffix = companySuffix.takeIf { it.isNotBlank() },
+                                    addressPrefix = addressPrefix.takeIf { it.isNotBlank() },
+                                    addressSuffix = addressSuffix.takeIf { it.isNotBlank() },
                                     addressKeyword = addressKeyword.takeIf { it.isNotBlank() },
                                     smsExample = smsExample,
                                     parcelCodePattern = pattern,
@@ -457,7 +572,7 @@ fun RuleFormDialog(
                                 onSave(rule)
                             }
                         },
-                        enabled = companyName.isNotBlank() && codePrefix.isNotBlank() && codeSuffix.isNotBlank()
+                        enabled = companyName.isNotBlank() && (codePrefix.isNotBlank() || codeSuffix.isNotBlank())
                     ) {
                         Text(saveButtonText)
                     }
@@ -521,14 +636,52 @@ fun RuleItem(
                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
 
                     if (rule.codePrefix != null) {
-                        Text(
-                            text = "从[${rule.codePrefix}]到[${rule.codeSuffix}]",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = textColor
-                        )
-                        rule.addressKeyword?.let {
+                        val codeLabel = when {
+                            !rule.codePrefix.isNullOrBlank() && !rule.codeSuffix.isNullOrBlank() ->
+                                "从[${rule.codePrefix}]到[${rule.codeSuffix}]"
+                            !rule.codePrefix.isNullOrBlank() && rule.codeSuffix.isNullOrBlank() ->
+                                "从[${rule.codePrefix}]到末尾"
+                            rule.codePrefix.isNullOrBlank() && !rule.codeSuffix.isNullOrBlank() ->
+                                "从开头到[${rule.codeSuffix}]"
+                            else -> null
+                        }
+                        codeLabel?.let {
                             Text(
-                                text = "地址关键词: $it",
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textColor
+                            )
+                        }
+                        val companyLabel = when {
+                            !rule.companyPrefix.isNullOrBlank() && !rule.companySuffix.isNullOrBlank() ->
+                                "公司:从[${rule.companyPrefix}]到[${rule.companySuffix}]"
+                            rule.companyPrefix.isNullOrBlank() && !rule.companySuffix.isNullOrBlank() ->
+                                "公司:从开头到[${rule.companySuffix}]"
+                            !rule.companyPrefix.isNullOrBlank() && rule.companySuffix.isNullOrBlank() ->
+                                "公司:从[${rule.companyPrefix}]到末尾"
+                            else -> null
+                        }
+                        companyLabel?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = textColor
+                            )
+                        }
+                        val addressLabel = when {
+                            !rule.addressPrefix.isNullOrBlank() && !rule.addressSuffix.isNullOrBlank() ->
+                                "地址:从[${rule.addressPrefix}]到[${rule.addressSuffix}]"
+                            rule.addressPrefix.isNullOrBlank() && !rule.addressSuffix.isNullOrBlank() ->
+                                "地址:从开头到[${rule.addressSuffix}]"
+                            !rule.addressPrefix.isNullOrBlank() && rule.addressSuffix.isNullOrBlank() ->
+                                "地址:从[${rule.addressPrefix}]到末尾"
+                            rule.addressKeyword != null ->
+                                "地址关键词: ${rule.addressKeyword}"
+                            else -> null
+                        }
+                        addressLabel?.let {
+                            Text(
+                                text = it,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = textColor
                             )

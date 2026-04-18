@@ -61,6 +61,19 @@ data class ParsingRule(
     @ColumnInfo(name = "address_keyword")
     val addressKeyword: String? = null,
 
+    // 前缀/后缀识别模式（用于快递公司和地址）
+    @ColumnInfo(name = "company_prefix")
+    val companyPrefix: String? = null,
+
+    @ColumnInfo(name = "company_suffix")
+    val companySuffix: String? = null,
+
+    @ColumnInfo(name = "address_prefix")
+    val addressPrefix: String? = null,
+
+    @ColumnInfo(name = "address_suffix")
+    val addressSuffix: String? = null,
+
     @ColumnInfo(name = "sms_example")
     val smsExample: String = "",
 
@@ -136,6 +149,51 @@ data class ParsingRule(
             val escapedPrefix = Regex.escape(prefix)
             val escapedSuffix = Regex.escape(suffix)
             return "${escapedPrefix}\\s*([\\u4e00-\\u9fa5a-zA-Z0-9\\-]+?)\\s*${escapedSuffix}"
+        }
+
+        /**
+         * 根据前缀/后缀生成公司名或地址提取正则
+         * - 左空 + 右空 → null（不识别）
+         * - 左空 + 右非空 → 从开头识别到右边界
+         * - 左非空 + 右空 → 从左边界识别到末尾
+         * - 左非空 + 右非空 → 从左边界识别到右边界
+         */
+        fun generateBoundaryPattern(
+            prefix: String?,
+            suffix: String?,
+            includeDelimiters: Boolean = false
+        ): String? {
+            val hasPrefix = !prefix.isNullOrBlank()
+            val hasSuffix = !suffix.isNullOrBlank()
+            if (!hasPrefix && !hasSuffix) return null
+
+            return when {
+                hasPrefix && hasSuffix -> {
+                    val ep = Regex.escape(prefix!!)
+                    val es = Regex.escape(suffix!!)
+                    if (includeDelimiters) {
+                        "($ep.*?$es)"
+                    } else {
+                        "$ep\\s*(.*?)\\s*$es"
+                    }
+                }
+                hasPrefix -> {
+                    val ep = Regex.escape(prefix!!)
+                    if (includeDelimiters) {
+                        "($ep.*)"
+                    } else {
+                        "$ep\\s*(.*)"
+                    }
+                }
+                else -> {
+                    val es = Regex.escape(suffix!!)
+                    if (includeDelimiters) {
+                        "(.*?)$es"
+                    } else {
+                        "(.*?)\\s*$es"
+                    }
+                }
+            }
         }
 
         /**

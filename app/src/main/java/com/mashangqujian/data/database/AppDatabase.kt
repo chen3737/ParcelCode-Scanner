@@ -100,9 +100,18 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE parsing_rules ADD COLUMN company_prefix TEXT")
+        db.execSQL("ALTER TABLE parsing_rules ADD COLUMN company_suffix TEXT")
+        db.execSQL("ALTER TABLE parsing_rules ADD COLUMN address_prefix TEXT")
+        db.execSQL("ALTER TABLE parsing_rules ADD COLUMN address_suffix TEXT")
+    }
+}
+
 @Database(
     entities = [Parcel::class, ParsingRule::class, DeletedParcelHistory::class],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -122,7 +131,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mashangqujian_db"
                 )
-                .addMigrations(MIGRATION_2_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_2_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
                 .fallbackToDestructiveMigration()
                 .build()
 

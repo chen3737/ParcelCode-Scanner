@@ -70,12 +70,11 @@ class SMSParser {
     }
 
     /**
-     * 通用解析：从【】提取公司名，从规则正则提取取件码
+     * 通用解析：从规则边界提取公司名，从规则正则提取取件码
      */
     private fun parseUniversal(content: String, sender: String, smsDate: Long, rule: ParsingRule): ParseResult {
-        // 从【XX】提取快递公司
-        val companyMatch = Regex("【([^】]+)】").find(content)
-        val company = companyMatch?.groupValues?.get(1)?.trim() ?: "未知快递"
+        // 提取快递公司
+        val company = extractCompanyName(content, rule)
 
         // 用通用规则的正则提取取件码
         val parcelCode = extractFromPattern(content, rule.parcelCodePattern)
@@ -101,6 +100,23 @@ class SMSParser {
     }
 
     /**
+     * 提取快递公司名称
+     */
+    private fun extractCompanyName(content: String, rule: ParsingRule): String {
+        val pattern = ParsingRule.generateBoundaryPattern(rule.companyPrefix, rule.companySuffix)
+        if (pattern != null) {
+            try {
+                Regex(pattern).find(content)?.groups?.get(1)?.value?.let {
+                    return it.trim()
+                }
+            } catch (e: Exception) {}
+        }
+        // 回退：从【】提取
+        val companyMatch = Regex("【([^】]+)】").find(content)
+        return companyMatch?.groupValues?.get(1)?.trim() ?: "未知快递"
+    }
+
+    /**
      * 从正则表达式中提取第一个捕获组
      */
     private fun extractFromPattern(content: String, pattern: String): String? {
@@ -116,6 +132,15 @@ class SMSParser {
      * 提取地址
      */
     private fun extractAddress(content: String, rule: ParsingRule): String {
+        // 1. 优先尝试前缀/后缀模式
+        ParsingRule.generateBoundaryPattern(rule.addressPrefix, rule.addressSuffix)?.let { addrPattern ->
+            try {
+                Regex(addrPattern).find(content)?.groups?.get(1)?.value?.let {
+                    return it.trim()
+                }
+            } catch (e: Exception) {}
+        }
+        // 2. 回退到关键词模式
         rule.addressPattern?.let { addrPattern ->
             try {
                 val pattern = Regex(addrPattern)
@@ -135,17 +160,41 @@ class SMSParser {
 
     private fun buildRuleName(rule: ParsingRule): String {
         val typeLabel = if (rule.isCustom) "自定义" else "预设"
-        val detail = if (!rule.codePrefix.isNullOrBlank() && !rule.codeSuffix.isNullOrBlank()) {
+        val codeDetail = if (!rule.codePrefix.isNullOrBlank() && !rule.codeSuffix.isNullOrBlank()) {
             "从[${rule.codePrefix}]到[${rule.codeSuffix}]"
+        } else if (!rule.codePrefix.isNullOrBlank() && rule.codeSuffix.isNullOrBlank()) {
+            "从[${rule.codePrefix}]到末尾"
+        } else if (rule.codePrefix.isNullOrBlank() && !rule.codeSuffix.isNullOrBlank()) {
+            "从开头到[${rule.codeSuffix}]"
         } else if (!rule.codeKeyword.isNullOrBlank()) {
             "关键词: ${rule.codeKeyword}"
         } else {
             ""
         }
-        return if (detail.isNotEmpty()) {
-            "$typeLabel·${rule.companyName}·$detail"
+
+        val companyDetail = if (!rule.companyPrefix.isNullOrBlank() && !rule.companySuffix.isNullOrBlank()) {
+            "公司:从[${rule.companyPrefix}]到[${rule.companySuffix}]"
+        } else if (rule.companyPrefix.isNullOrBlank() && !rule.companySuffix.isNullOrBlank()) {
+            "公司:从开头到[${rule.companySuffix}]"
+        } else if (!rule.companyPrefix.isNullOrBlank() && rule.companySuffix.isNullOrBlank()) {
+            "公司:从[${rule.companyPrefix}]到末尾"
         } else {
-            "$typeLabel·${rule.companyName}"
+            ""
         }
+
+        val addressDetail = if (!rule.addressPrefix.isNullOrBlank() && !rule.addressSuffix.isNullOrBlank()) {
+            "地址:从[${rule.addressPrefix}]到[${rule.addressSuffix}]"
+        } else if (rule.addressPrefix.isNullOrBlank() && !rule.addressSuffix.isNullOrBlank()) {
+            "地址:从开头到[${rule.addressSuffix}]"
+        } else if (!rule.addressPrefix.isNullOrBlank() && rule.addressSuffix.isNullOrBlank()) {
+            "地址:从[${rule.addressPrefix}]到末尾"
+        } else if (!rule.addressKeyword.isNullOrBlank()) {
+            "地址关键词: ${rule.addressKeyword}"
+        } else {
+            ""
+        }
+
+        val parts = listOfNotNull(typeLabel, rule.companyName, codeDetail, companyDetail, addressDetail)
+        return parts.joinToString("·")
     }
 }
