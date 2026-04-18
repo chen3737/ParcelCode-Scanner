@@ -203,12 +203,13 @@ fun RuleManagementScreen(
                         selectedRuleForEdit = null
                     },
                     onSave = { updatedRule ->
+                        showEditDialog = false
+                        val ruleToSave = updatedRule
                         scope.launch {
-                            viewModel.updateRule(updatedRule)
+                            viewModel.updateRule(ruleToSave)
                             snackbarHostState.showSnackbar("规则已更新")
-                            showEditDialog = false
-                            selectedRuleForEdit = null
                         }
+                        selectedRuleForEdit = null
                     }
                 )
             }

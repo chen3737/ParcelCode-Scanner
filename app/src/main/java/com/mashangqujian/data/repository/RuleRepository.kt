@@ -141,23 +141,24 @@ class RuleRepository(context: Context) {
      * 初始化预设规则
      */
     suspend fun initializeDefaultRules() {
-        // 如果已有规则则不添加
-        if (getRuleCount() > 0) return
+        // 检查通用规则是否已存在
+        val existing = getRuleById("universal_rule")
+        if (existing != null) return
 
-        // 预设：兔喜生活
+        // 预设：通用规则（使用【】识别公司，取件码关键词识别取件码）
         insert(
             ParsingRule(
-                id = "preset_tuxi",
-                companyName = "兔喜生活",
-                codePrefix = "取件码为",
+                id = "universal_rule",
+                companyName = "通用",
+                codePrefix = "取件码",
                 codeSuffix = "，",
                 addressKeyword = "到达",
                 isCustom = true,
                 isEnabled = true,
-                parcelCodePattern = Regex.escape("取件码为") + "\\s*([\\u4e00-\\u9fa5a-zA-Z0-9\\-]+?)\\s*，",
+                parcelCodePattern = "取件码(?:为|：|:|\\s)*([\\u4e00-\\u9fa5a-zA-Z0-9\\-]{2,15})[，。.!！\\s]",
                 addressPattern = ParsingRule.generateAddressPattern("到达"),
                 smsExample = "【兔喜生活】您有包裹已到达佳和园东门水果店店，取件码为6-5-2502，地址:清江南路5号小区东门水果店",
-                description = "预设：兔喜生活取件码规则",
+                description = "通用识别规则：从【】提取公司名，从取件码关键词提取取件码",
                 createdAt = System.currentTimeMillis(),
                 updatedAt = System.currentTimeMillis()
             )
