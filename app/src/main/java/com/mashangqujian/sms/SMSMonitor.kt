@@ -54,8 +54,9 @@ class SMSMonitor(
                         val date = c.getLong(c.getColumnIndexOrThrow(Telephony.Sms.DATE))
                         val type = c.getInt(c.getColumnIndexOrThrow(Telephony.Sms.TYPE))
 
-                        // 只处理收到的短信（TYPE_INBOX = 1），且时间戳大于上次看到的
-                        if (type == Telephony.Sms.MESSAGE_TYPE_INBOX && date > lastSeenTimestamp) {
+                        // 处理收到的短信（TYPE_INBOX = 1）和通知类短信（TYPE_ALL = 0）
+                        // 小米/鸿蒙等系统可能将通知类短信存储为不同类型
+                        if ((type == Telephony.Sms.MESSAGE_TYPE_INBOX || type == Telephony.Sms.MESSAGE_TYPE_ALL) && date > lastSeenTimestamp) {
                             lastSeenTimestamp = date
                             Log.d("SMSMonitor", "新短信: $address - ${body.take(30)}...")
 

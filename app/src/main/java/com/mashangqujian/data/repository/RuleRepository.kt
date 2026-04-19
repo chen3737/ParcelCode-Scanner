@@ -56,7 +56,6 @@ class RuleRepository(context: Context) {
         codeFormat: CodeFormatType,
         codeMinDigits: Int = 3,
         codeMaxDigits: Int = 8,
-        addressKeyword: String? = null,
         description: String = "",
         smsExample: String = ""
     ): ParsingRule {
@@ -67,7 +66,6 @@ class RuleRepository(context: Context) {
             codeFormat = codeFormat.name,
             codeMinDigits = codeMinDigits,
             codeMaxDigits = codeMaxDigits,
-            addressKeyword = addressKeyword,
             smsExample = smsExample,
             parcelCodePattern = ParsingRule.generateParcelCodePattern(
                 formatType = codeFormat,
@@ -75,7 +73,6 @@ class RuleRepository(context: Context) {
                 minDigits = codeMinDigits,
                 maxDigits = codeMaxDigits
             ),
-            addressPattern = ParsingRule.generateAddressPattern(addressKeyword),
             isCustom = true,
             isEnabled = true,
             description = description

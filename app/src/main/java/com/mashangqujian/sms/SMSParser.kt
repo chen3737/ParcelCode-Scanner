@@ -188,8 +188,6 @@ class SMSParser {
             "地址:从开头到[${rule.addressSuffix}]"
         } else if (!rule.addressPrefix.isNullOrBlank() && rule.addressSuffix.isNullOrBlank()) {
             "地址:从[${rule.addressPrefix}]到末尾"
-        } else if (!rule.addressKeyword.isNullOrBlank()) {
-            "地址关键词: ${rule.addressKeyword}"
         } else {
             ""
         }

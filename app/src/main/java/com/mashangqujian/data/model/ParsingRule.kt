@@ -24,6 +24,9 @@ data class ParsingRule(
     @PrimaryKey
     val id: String,
 
+    @ColumnInfo(name = "rule_name")
+    val ruleName: String = "",
+
     @ColumnInfo(name = "company_name")
     val companyName: String,
 

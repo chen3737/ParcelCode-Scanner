@@ -22,28 +22,28 @@ class SMSReader(private val contentResolver: ContentResolver) {
      */
     fun readSMS(startDate: Long = 0, limit: Int = 0): List<SMSItem> {
         val smsList = mutableListOf<SMSItem>()
-        
+
         val projection = arrayOf(
             Sms.ADDRESS,
             Sms.BODY,
             Sms.DATE,
             Sms.TYPE
         )
-        
+
         val selection = if (startDate > 0) {
             "${Sms.DATE} >= ?"
         } else {
             null
         }
-        
+
         val selectionArgs = if (startDate > 0) {
             arrayOf(startDate.toString())
         } else {
             null
         }
-        
+
         val sortOrder = "${Sms.DATE} DESC"
-        
+
         var cursor: Cursor? = null
         try {
             cursor = contentResolver.query(
@@ -53,23 +53,22 @@ class SMSReader(private val contentResolver: ContentResolver) {
                 selectionArgs,
                 sortOrder
             )
-            
+
             cursor?.use {
-                var count = 0
-                while (it.moveToNext() && (limit == 0 || count < limit)) {
+                while (it.moveToNext() && (limit == 0 || smsList.size < limit)) {
                     val address = it.getStringOrNull(it.getColumnIndexOrThrow(Sms.ADDRESS)) ?: ""
                     val body = it.getStringOrNull(it.getColumnIndexOrThrow(Sms.BODY)) ?: ""
                     val date = it.getLong(it.getColumnIndexOrThrow(Sms.DATE))
                     val type = it.getInt(it.getColumnIndexOrThrow(Sms.TYPE))
-                    
-                    // 只处理收到的短信（TYPE = 1）
-                    if (type == Sms.MESSAGE_TYPE_INBOX) {
+
+                    // 处理收到的短信（TYPE = 1 收件箱）和通知类短信（TYPE = 0 所有类型）
+                    // 小米/鸿蒙等系统可能将通知类短信存储为不同类型
+                    if (type == Sms.MESSAGE_TYPE_INBOX || type == Sms.MESSAGE_TYPE_ALL) {
                         smsList.add(SMSItem(
                             sender = address,
                             content = body,
                             date = date
                         ))
-                        count++
                     }
                 }
             }
@@ -82,7 +81,7 @@ class SMSReader(private val contentResolver: ContentResolver) {
         } finally {
             cursor?.close()
         }
-        
+
         return smsList
     }
     
@@ -129,8 +128,8 @@ class SMSReader(private val contentResolver: ContentResolver) {
             val cursor = contentResolver.query(
                 Sms.CONTENT_URI,
                 null,
-                "${Sms.TYPE} = ?",
-                arrayOf(Sms.MESSAGE_TYPE_INBOX.toString()),
+                "${Sms.TYPE} = ? OR ${Sms.TYPE} = ?",
+                arrayOf(Sms.MESSAGE_TYPE_INBOX.toString(), Sms.MESSAGE_TYPE_ALL.toString()),
                 null
             )
             

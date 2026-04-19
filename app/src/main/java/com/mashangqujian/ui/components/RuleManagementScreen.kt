@@ -30,10 +30,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -63,8 +60,6 @@ import com.mashangqujian.data.model.ParsingRule
 import com.mashangqujian.ui.MainViewModel
 import kotlinx.coroutines.launch
 
-// 预设公司名称（用于输入提示）
-val PRESET_COMPANIES = listOf("顺丰", "京东", "中通", "圆通", "韵达", "菜鸟驿站", "邮政", "EMS")
 
 /**
  * 规则管理屏幕 - 管理取件码识别规则
@@ -144,7 +139,7 @@ fun RuleManagementScreen(
                 ) {
                     val groupedRules = rules.groupBy { it.companyName }
 
-                    groupedRules.forEach { (companyName, companyRules) ->
+                    groupedRules.forEach { (_, companyRules) ->
                         items(companyRules) { rule ->
                             RuleItem(
                                 rule = rule,
@@ -197,7 +192,6 @@ fun RuleManagementScreen(
                     title = if (rule.isCustom) "编辑规则" else "复制为自定义规则",
                     saveButtonText = if (rule.isCustom) "保存" else "创建副本",
                     initialRule = rule,
-                    isEditingPreset = !rule.isCustom,
                     onDismiss = {
                         showEditDialog = false
                         selectedRuleForEdit = null
@@ -247,14 +241,15 @@ fun RuleFormDialog(
     title: String,
     saveButtonText: String,
     initialRule: ParsingRule? = null,
-    isEditingPreset: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (ParsingRule) -> Unit
 ) {
+    var ruleName by remember {
+        mutableStateOf(initialRule?.ruleName ?: "")
+    }
     var companyName by remember {
         mutableStateOf(initialRule?.companyName ?: "")
     }
-    var companyExpanded by remember { mutableStateOf(false) }
 
     var codePrefix by remember {
         mutableStateOf(initialRule?.codePrefix ?: "")
@@ -264,10 +259,10 @@ fun RuleFormDialog(
     }
 
     var companyPrefix by remember {
-        mutableStateOf(initialRule?.companyPrefix ?: "")
+        mutableStateOf(initialRule?.companyPrefix ?: "【")
     }
     var companySuffix by remember {
-        mutableStateOf(initialRule?.companySuffix ?: "")
+        mutableStateOf(initialRule?.companySuffix ?: "】")
     }
 
     var addressPrefix by remember {
@@ -275,10 +270,6 @@ fun RuleFormDialog(
     }
     var addressSuffix by remember {
         mutableStateOf(initialRule?.addressSuffix ?: "")
-    }
-
-    var addressKeyword by remember {
-        mutableStateOf(initialRule?.addressKeyword ?: "")
     }
 
     var smsExample by remember {
@@ -303,13 +294,11 @@ fun RuleFormDialog(
             companySuffix.takeIf { it.isNotBlank() }
         )
     }
-    val generatedAddressPattern = remember(addressPrefix, addressSuffix, addressKeyword) {
+    val generatedAddressPattern = remember(addressPrefix, addressSuffix) {
         ParsingRule.generateBoundaryPattern(
             addressPrefix.takeIf { it.isNotBlank() },
             addressSuffix.takeIf { it.isNotBlank() }
-        ) ?: if (addressKeyword.isNotBlank()) {
-            ParsingRule.generateAddressPattern(addressKeyword)
-        } else null
+        )
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -329,46 +318,37 @@ fun RuleFormDialog(
                 LazyColumn(
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    // 快递公司
+                    // 自定义规则名称
                     item {
-                        Text("快递公司", style = MaterialTheme.typography.labelLarge)
-                        ExposedDropdownMenuBox(
-                            expanded = companyExpanded,
-                            onExpandedChange = { companyExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = companyName,
-                                onValueChange = { companyName = it },
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth(),
-                                placeholder = { Text("选择或输入公司名称") },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = companyExpanded) },
-                                singleLine = true
-                            )
-                            ExposedDropdownMenu(
-                                expanded = companyExpanded,
-                                onDismissRequest = { companyExpanded = false }
-                            ) {
-                                PRESET_COMPANIES.forEach { company ->
-                                    DropdownMenuItem(
-                                        text = { Text(company) },
-                                        onClick = {
-                                            companyName = company
-                                            companyExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
+                        Text("自定义规则名称", style = MaterialTheme.typography.labelLarge)
+                        OutlinedTextField(
+                            value = ruleName,
+                            onValueChange = { ruleName = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("默认：自定义规则+数字") },
+                            singleLine = true
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    // 快递公司识别范围
+                    // 快递公司名称（纯文本输入）
+                    item {
+                        Text("快递公司名称", style = MaterialTheme.typography.labelLarge)
+                        OutlinedTextField(
+                            value = companyName,
+                            onValueChange = { companyName = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("输入或粘贴快递公司名称") },
+                            singleLine = true
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    // 快递公司识别方式（默认【】匹配）
                     item {
                         Text("快递公司名称识别（可选）", style = MaterialTheme.typography.labelLarge)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("留空两边则不识别，留一边则从开头/到末尾识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("通过短信中的文字边界识别公司名，留空两边则不识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -432,7 +412,7 @@ fun RuleFormDialog(
                     item {
                         Text("地址识别范围（可选）", style = MaterialTheme.typography.labelLarge)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("留空两边则使用关键词模式，留一边则从开头/到末尾识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("留空两边则不识别，留一边则从开头/到末尾识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -458,15 +438,6 @@ fun RuleFormDialog(
                                 singleLine = true
                             )
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("或关键词模式（可选）", style = MaterialTheme.typography.labelMedium)
-                        OutlinedTextField(
-                            value = addressKeyword,
-                            onValueChange = { addressKeyword = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("例如：到达、请到（前缀/后缀留空时生效）") },
-                            singleLine = true
-                        )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
@@ -533,24 +504,20 @@ fun RuleFormDialog(
                     Button(
                         onClick = {
                             if (companyName.isNotBlank() && (codePrefix.isNotBlank() || codeSuffix.isNotBlank())) {
+                                val actualRuleName = ruleName.ifBlank { "自定义规则" }
                                 val pattern = if (codePrefix.isNotBlank() && codeSuffix.isNotBlank()) {
                                     ParsingRule.generatePatternFromPrefixSuffix(codePrefix, codeSuffix)
                                 } else {
                                     ""
                                 }
-                                val companyPattern = ParsingRule.generateBoundaryPattern(
-                                    companyPrefix.takeIf { it.isNotBlank() },
-                                    companySuffix.takeIf { it.isNotBlank() }
-                                )
                                 val addrPattern = ParsingRule.generateBoundaryPattern(
                                     addressPrefix.takeIf { it.isNotBlank() },
                                     addressSuffix.takeIf { it.isNotBlank() }
-                                ) ?: if (addressKeyword.isNotBlank()) {
-                                    ParsingRule.generateAddressPattern(addressKeyword)
-                                } else null
+                                )
                                 val rule = ParsingRule(
                                     id = initialRule?.id
                                         ?: ParsingRule.generateId(companyName),
+                                    ruleName = actualRuleName,
                                     companyName = companyName,
                                     codePrefix = codePrefix.takeIf { it.isNotBlank() },
                                     codeSuffix = codeSuffix.takeIf { it.isNotBlank() },
@@ -558,7 +525,6 @@ fun RuleFormDialog(
                                     companySuffix = companySuffix.takeIf { it.isNotBlank() },
                                     addressPrefix = addressPrefix.takeIf { it.isNotBlank() },
                                     addressSuffix = addressSuffix.takeIf { it.isNotBlank() },
-                                    addressKeyword = addressKeyword.takeIf { it.isNotBlank() },
                                     smsExample = smsExample,
                                     parcelCodePattern = pattern,
                                     addressPattern = addrPattern,
@@ -675,8 +641,6 @@ fun RuleItem(
                                 "地址:从开头到[${rule.addressSuffix}]"
                             !rule.addressPrefix.isNullOrBlank() && rule.addressSuffix.isNullOrBlank() ->
                                 "地址:从[${rule.addressPrefix}]到末尾"
-                            rule.addressKeyword != null ->
-                                "地址关键词: ${rule.addressKeyword}"
                             else -> null
                         }
                         addressLabel?.let {
