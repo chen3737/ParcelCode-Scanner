@@ -30,10 +30,6 @@ class MainViewModel : ViewModel() {
     val errorMessage = mutableStateOf<String?>(null)
     val selectedParcel = mutableStateOf<Parcel?>(null)
 
-    // 手动输入相关状态
-    val showAddManuallyDialog = mutableStateOf(false)
-    val manualSMSText = mutableStateOf("")
-
     // 规则管理相关状态
     val showRuleManagement = mutableStateOf(false)
     val allRules = mutableStateListOf<ParsingRule>()
@@ -351,7 +347,7 @@ class MainViewModel : ViewModel() {
                 isLoading.value = true
                 errorMessage.value = null
 
-                val result = smsParser.parseSMS(text, "手动输入", System.currentTimeMillis())
+                val result = smsParser.parseSMS(text, "分享输入", System.currentTimeMillis())
 
                 if (result.parcel != null) {
                     database.parcelDao().insert(result.parcel)
@@ -367,7 +363,7 @@ class MainViewModel : ViewModel() {
             }
         }
     }
-    
+
     fun markAsCollected(parcel: Parcel) {
         viewModelScope.launch {
             try {
@@ -458,34 +454,6 @@ class MainViewModel : ViewModel() {
                 errorMessage.value = "清理失败: ${e.message}"
             }
         }
-    }
-    
-    /**
-     * 打开手动输入对话框
-     */
-    fun openManualInputDialog() {
-        manualSMSText.value = ""
-        showAddManuallyDialog.value = true
-    }
-    
-    /**
-     * 关闭手动输入对话框
-     */
-    fun closeManualInputDialog() {
-        showAddManuallyDialog.value = false
-    }
-    
-    /**
-     * 手动添加文本并处理结果
-     */
-    fun addManually() {
-        val text = manualSMSText.value.trim()
-        if (text.isEmpty()) {
-            errorMessage.value = "请输入短信内容"
-            return
-        }
-
-        parseAndAddText(text)
     }
     
     /**

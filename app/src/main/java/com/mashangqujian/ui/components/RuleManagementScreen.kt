@@ -174,6 +174,7 @@ fun RuleManagementScreen(
             RuleFormDialog(
                 title = "添加自定义规则",
                 saveButtonText = "添加",
+                nextRuleNumber = rules.count { it.isCustom } + 1,
                 onDismiss = { showAddDialog = false },
                 onSave = { rule ->
                     showAddDialog = false
@@ -192,6 +193,7 @@ fun RuleManagementScreen(
                     title = if (rule.isCustom) "编辑规则" else "复制为自定义规则",
                     saveButtonText = if (rule.isCustom) "保存" else "创建副本",
                     initialRule = rule,
+                    nextRuleNumber = rules.count { it.isCustom } + 1,
                     onDismiss = {
                         showEditDialog = false
                         selectedRuleForEdit = null
@@ -248,14 +250,12 @@ fun RuleFormDialog(
     title: String,
     saveButtonText: String,
     initialRule: ParsingRule? = null,
+    nextRuleNumber: Int = 1,
     onDismiss: () -> Unit,
     onSave: (ParsingRule) -> Unit
 ) {
     var ruleName by remember {
         mutableStateOf(initialRule?.ruleName ?: "")
-    }
-    var companyName by remember {
-        mutableStateOf(initialRule?.companyName ?: "")
     }
 
     var codePrefix by remember {
@@ -332,30 +332,17 @@ fun RuleFormDialog(
                             value = ruleName,
                             onValueChange = { ruleName = it },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("默认：自定义规则+数字") },
+                            placeholder = { Text("默认：规则$nextRuleNumber") },
                             singleLine = true
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    // 快递公司名称（纯文本输入）
+                    // 驿站名称识别（默认【】匹配）
                     item {
-                        Text("快递公司名称", style = MaterialTheme.typography.labelLarge)
-                        OutlinedTextField(
-                            value = companyName,
-                            onValueChange = { companyName = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("输入或粘贴快递公司名称") },
-                            singleLine = true
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-
-                    // 快递公司识别方式（默认【】匹配）
-                    item {
-                        Text("快递公司名称识别（可选）", style = MaterialTheme.typography.labelLarge)
+                        Text("驿站名称识别（可选）", style = MaterialTheme.typography.labelLarge)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("通过短信中的文字边界识别公司名，留空两边则不识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("通过短信中的文字边界识别驿站名，留空两边则不识别", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -367,7 +354,7 @@ fun RuleFormDialog(
                                 value = companyPrefix,
                                 onValueChange = { companyPrefix = it },
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text("公司名前的文字") },
+                                placeholder = { Text("驿站名前的文字") },
                                 singleLine = true
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -377,7 +364,7 @@ fun RuleFormDialog(
                                 value = companySuffix,
                                 onValueChange = { companySuffix = it },
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text("公司名后的文字") },
+                                placeholder = { Text("驿站名后的文字") },
                                 singleLine = true
                             )
                         }
@@ -510,8 +497,8 @@ fun RuleFormDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            if (companyName.isNotBlank() && (codePrefix.isNotBlank() || codeSuffix.isNotBlank())) {
-                                val actualRuleName = ruleName.ifBlank { "自定义规则" }
+                            if (codePrefix.isNotBlank() || codeSuffix.isNotBlank()) {
+                                val actualRuleName = ruleName.ifBlank { "规则$nextRuleNumber" }
                                 val pattern = if (codePrefix.isNotBlank() && codeSuffix.isNotBlank()) {
                                     ParsingRule.generatePatternFromPrefixSuffix(codePrefix, codeSuffix)
                                 } else {
@@ -523,9 +510,9 @@ fun RuleFormDialog(
                                 )
                                 val rule = ParsingRule(
                                     id = initialRule?.id
-                                        ?: ParsingRule.generateId(companyName),
+                                        ?: ParsingRule.generateId(actualRuleName),
                                     ruleName = actualRuleName,
-                                    companyName = companyName,
+                                    companyName = actualRuleName,
                                     codePrefix = codePrefix.takeIf { it.isNotBlank() },
                                     codeSuffix = codeSuffix.takeIf { it.isNotBlank() },
                                     companyPrefix = companyPrefix.takeIf { it.isNotBlank() },
@@ -545,7 +532,7 @@ fun RuleFormDialog(
                                 onSave(rule)
                             }
                         },
-                        enabled = companyName.isNotBlank() && (codePrefix.isNotBlank() || codeSuffix.isNotBlank())
+                        enabled = (codePrefix.isNotBlank() || codeSuffix.isNotBlank())
                     ) {
                         Text(saveButtonText)
                     }

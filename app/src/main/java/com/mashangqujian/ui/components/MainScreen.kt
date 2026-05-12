@@ -127,7 +127,6 @@ fun MainScreen(viewModel: MainViewModel) {
 
     var currentRoute by remember { mutableStateOf(NavItem.Home.route) }
 
-    val showManualInputDialog by remember { viewModel.showAddManuallyDialog }
     val showRuleManagement by remember { viewModel.showRuleManagement }
     val errorMessage = viewModel.errorMessage.value
 
@@ -137,9 +136,6 @@ fun MainScreen(viewModel: MainViewModel) {
         errorMessage?.let { message ->
             toastMessage = message
             viewModel.clearError()
-            if (message.contains("成功添加取件码")) {
-                viewModel.closeManualInputDialog()
-            }
         }
     }
 
@@ -171,32 +167,6 @@ fun MainScreen(viewModel: MainViewModel) {
                         icon = Icons.Default.Search,
                         onClick = { viewModel.scanSMS() }
                     )
-
-                    // 手动添加按钮 — 醒目胶囊样式
-                    Box(
-                        modifier = Modifier
-                            .padding(end = 4.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .clickable { viewModel.openManualInputDialog() }
-                            .background(MaterialTheme.colorScheme.primary)
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = Color.White
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "添加包裹",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
-                    }
                 }
             )
         },
@@ -219,14 +189,6 @@ fun MainScreen(viewModel: MainViewModel) {
                 NavItem.Settings.route -> SettingsPage(viewModel)
             }
         }
-    }
-
-    // 手动输入对话框
-    if (showManualInputDialog) {
-        ManualInputDialog(
-            viewModel = viewModel,
-            onDismiss = { viewModel.closeManualInputDialog() }
-        )
     }
 
     // 规则管理界面
@@ -534,6 +496,8 @@ fun HomeScreen(viewModel: MainViewModel) {
 
 @Composable
 fun HistoryScreen(viewModel: MainViewModel) {
+    var showAll by remember { mutableStateOf(false) }
+
     val collectedParcels by remember(viewModel.parcels) {
         derivedStateOf {
             viewModel.parcels
@@ -541,6 +505,16 @@ fun HistoryScreen(viewModel: MainViewModel) {
                 .sortedByDescending { it.collectedAt ?: it.smsDate }
         }
     }
+
+    val sevenDaysAgo = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000)
+    val recentParcels by remember(collectedParcels) {
+        derivedStateOf {
+            collectedParcels.filter { (it.collectedAt ?: it.smsDate) >= sevenDaysAgo }
+        }
+    }
+
+    val displayParcels = if (showAll) collectedParcels else recentParcels
+    val hasMore = !showAll && collectedParcels.size > recentParcels.size
 
     if (viewModel.isLoading.value) {
         Box(
@@ -553,7 +527,7 @@ fun HistoryScreen(viewModel: MainViewModel) {
                 Text("正在加载...")
             }
         }
-    } else if (collectedParcels.isEmpty()) {
+    } else if (displayParcels.isEmpty()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -587,12 +561,27 @@ fun HistoryScreen(viewModel: MainViewModel) {
             )
         }
     } else {
-        SwipeableParcelList(
-            parcels = collectedParcels,
-            viewModel = viewModel,
-            showCollectedHeader = true,
-            swipeAction = SwipeAction.DELETE
-        )
+        Column {
+            SwipeableParcelList(
+                parcels = displayParcels,
+                viewModel = viewModel,
+                showCollectedHeader = true,
+                swipeAction = SwipeAction.DELETE
+            )
+
+            if (hasMore) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TextButton(onClick = { showAll = true }) {
+                        Text("查看更多历史记录")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -729,7 +718,7 @@ fun SwipeableParcelList(
     }
 }
 
-// ==================== 按公司分组的包裹列表（首页） ====================
+// ==================== 按驿站分组的包裹列表（首页） ====================
 
 @Composable
 fun GroupedParcelList(
@@ -740,21 +729,21 @@ fun GroupedParcelList(
     var showSmsDialog by remember { mutableStateOf<Parcel?>(null) }
     val clipboard = LocalClipboardManager.current
 
-    // 按公司分组，保持原始顺序（短信时间倒序）
+    // 按驿站分组，保持原始顺序（短信时间倒序）
     val grouped = parcels.groupBy { it.courierCompany }
-    val companyOrder = parcels.distinctBy { it.courierCompany }.map { it.courierCompany }
+    val stationOrder = parcels.distinctBy { it.courierCompany }.map { it.courierCompany }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         state = rememberLazyListState(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        companyOrder.forEach { company ->
-            val companyParcels = grouped[company] ?: emptyList()
+        stationOrder.forEach { station ->
+            val stationParcels = grouped[station] ?: emptyList()
             item {
-                SectionHeader("$company (${companyParcels.size})")
+                SectionHeader("$station (${stationParcels.size})")
             }
-            items(companyParcels, key = { it.id }) { parcel ->
+            items(stationParcels, key = { it.id }) { parcel ->
                 SwipeableParcelItem(
                     parcel = parcel,
                     onShowSms = { showSmsDialog = parcel },
@@ -1003,7 +992,7 @@ fun ParcelSmsDialog(
         title = { Text("原始短信") },
         text = {
             Column {
-                // 快递公司信息
+                // 驿站信息
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
@@ -1176,7 +1165,7 @@ fun ClipboardConfirmDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.LocalShipping, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("快递公司：", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                    Text("驿站：", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
                     Text(parcel.courierCompany, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
                 Spacer(modifier = Modifier.height(6.dp))
