@@ -186,7 +186,7 @@ fun SettingsPage(viewModel: MainViewModel) {
         AlertDialog(
             onDismissRequest = { showClearConfirmDialog = false },
             title = { Text("确认清理数据") },
-            text = { Text("确定要删除所有取件记录吗？此操作不可撤销。") },
+            text = { Text("将清除所有取件记录、自定义规则和删除历史，预设规则不会被删除。此操作不可撤销。") },
             confirmButton = {
                 Button(
                     onClick = {

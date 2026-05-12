@@ -104,6 +104,11 @@ class RuleRepository(context: Context) {
     suspend fun deleteAllCustomRules() = ruleDao.deleteAllCustomRules()
 
     /**
+     * 删除用户添加的自定义规则（保留预设规则）
+     */
+    suspend fun deleteUserRules() = ruleDao.deleteUserRules()
+
+    /**
      * 启用/禁用规则
      */
     suspend fun setRuleEnabled(id: String, enabled: Boolean) {
@@ -152,7 +157,7 @@ class RuleRepository(context: Context) {
                 companyPrefix = "【",
                 companySuffix = "】",
                 addressKeyword = "到达",
-                isCustom = true,
+                isCustom = false,
                 isEnabled = true,
                 parcelCodePattern = "取件码(?:为|：|:|\\s)*([\\u4e00-\\u9fa5a-zA-Z0-9\\-]{2,15})[，。.!！\\s]",
                 addressPattern = ParsingRule.generateAddressPattern("到达"),

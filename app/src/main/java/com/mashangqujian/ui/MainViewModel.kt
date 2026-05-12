@@ -449,7 +449,10 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 database.parcelDao().deleteAllParcels()
+                ruleRepository.deleteUserRules()
+                database.deletedParcelHistoryDao().deleteAll()
                 loadParcels()
+                loadAllRules()
                 errorMessage.value = "所有数据已清理"
             } catch (e: Exception) {
                 errorMessage.value = "清理失败: ${e.message}"

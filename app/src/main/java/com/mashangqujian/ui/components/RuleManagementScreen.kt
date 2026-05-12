@@ -198,10 +198,17 @@ fun RuleManagementScreen(
                     },
                     onSave = { updatedRule ->
                         showEditDialog = false
-                        val ruleToSave = updatedRule
                         scope.launch {
-                            viewModel.updateRule(ruleToSave)
-                            snackbarHostState.showSnackbar("规则已更新")
+                            if (rule.isCustom) {
+                                viewModel.updateRule(updatedRule)
+                                snackbarHostState.showSnackbar("规则已更新")
+                            } else {
+                                val newRule = updatedRule.copy(
+                                    id = ParsingRule.generateId(updatedRule.companyName)
+                                )
+                                viewModel.addRule(newRule)
+                                snackbarHostState.showSnackbar("已创建自定义规则副本")
+                            }
                         }
                         selectedRuleForEdit = null
                     }

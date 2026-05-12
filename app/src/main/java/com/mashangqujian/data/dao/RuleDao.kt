@@ -47,7 +47,13 @@ interface RuleDao {
      */
     @Query("DELETE FROM parsing_rules WHERE is_custom = 1")
     suspend fun deleteAllCustomRules()
-    
+
+    /**
+     * 删除用户添加的自定义规则（保留预设规则）
+     */
+    @Query("DELETE FROM parsing_rules WHERE is_custom = 1")
+    suspend fun deleteUserRules()
+
     /**
      * 获取所有规则
      */

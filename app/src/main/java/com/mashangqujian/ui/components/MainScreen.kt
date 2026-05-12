@@ -166,6 +166,12 @@ fun MainScreen(viewModel: MainViewModel) {
                     actionIconContentColor = MaterialTheme.colorScheme.onSurface
                 ),
                 actions = {
+                    // 扫描按钮 - iOS 液态风格，只显示图标
+                    IOSLiquidIconButton(
+                        icon = Icons.Default.Search,
+                        onClick = { viewModel.scanSMS() }
+                    )
+
                     // 手动添加按钮 — 醒目胶囊样式
                     Box(
                         modifier = Modifier
@@ -191,12 +197,6 @@ fun MainScreen(viewModel: MainViewModel) {
                             )
                         }
                     }
-
-                    // 扫描按钮 - iOS 液态风格，只显示图标
-                    IOSLiquidIconButton(
-                        icon = Icons.Default.Search,
-                        onClick = { viewModel.scanSMS() }
-                    )
                 }
             )
         },
